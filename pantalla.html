@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pantalla</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Sin dependencias externas ni sintaxis moderna: los navegadores de TV suelen ser viejos */
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { font-family: "Arial Black", Impact, "Helvetica Neue", Arial, sans-serif; color: #fff; }
+
+  /* Fondo de respaldo: se ve si no hay videos o si un video falla */
+  #fondo {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #12002b, #5a0fb8, #ff2e88, #12002b);
+    background-size: 400% 400%;
+    -webkit-animation: mover 14s ease infinite; animation: mover 14s ease infinite;
+  }
+  @-webkit-keyframes mover { 0% {background-position: 0% 50%} 50% {background-position: 100% 50%} 100% {background-position: 0% 50%} }
+  @keyframes mover { 0% {background-position: 0% 50%} 50% {background-position: 100% 50%} 100% {background-position: 0% 50%} }
+
+  video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+
+  /* Barra inferior: sponsor a la izquierda, mensaje a la derecha */
+  #barra {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 15%;
+    display: -webkit-flex; display: flex; -webkit-align-items: stretch; align-items: stretch;
+    background: rgba(5, 3, 10, 0.82);
+    border-top: 0.6vh solid #ff2e88;
+    opacity: 0; -webkit-transition: opacity 0.6s; transition: opacity 0.6s;
+  }
+  #barra.visible { opacity: 1; }
+
+  #sponsor {
+    -webkit-flex: 0 0 24%; flex: 0 0 24%;
+    display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+    background: #fff;
+  }
+  #sponsor img { max-width: 88%; max-height: 80%; display: block; }
+
+  #mensaje {
+    -webkit-flex: 1; flex: 1;
+    display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center;
+    padding: 0 3vw; overflow: hidden;
+  }
+  #mensaje span {
+    font-size: 5.4vh; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.02em;
+    opacity: 0; -webkit-transition: opacity 0.5s; transition: opacity 0.5s;
+  }
+  #mensaje span.on { opacity: 1; }
+
+  /* Estado para depuración: agregá ?debug a la URL */
+  #debug { position: absolute; top: 8px; left: 8px; font: 14px/1.3 monospace; color: #0f0; background: rgba(0,0,0,.7); padding: 6px 8px; display: none; white-space: pre; }
+</style>
+</head>
+<body>
+
+<div id="fondo"></div>
+<video id="video" muted playsinline></video>
+
+<div id="barra">
+  <div id="sponsor"><img id="sponsorImg" alt=""></div>
+  <div id="mensaje"><span id="mensajeTxt"></span></div>
+</div>
+
+<div id="debug"></div>
+
+<script>
+/* =====================================================
+   CONFIGURACIÓN BASE
+   Casi todo se maneja desde el Google Sheet. Lo de acá es el RESPALDO:
+   se usa si el Sheet está vacío, no carga o no hay internet.
+   ===================================================== */
+var CONFIG = {
+  // Link del Sheet publicado como CSV (Archivo > Compartir > Publicar en la web > CSV).
+  // Es lo único que NECESITÁS poner acá. Se puede cambiar también con ?sheet=URL en la dirección.
+  sheetCsvUrl: "",
+
+  // Respaldos por defecto (rutas relativas a este archivo)
+  videos: [
+    // "videos/loop1.mp4"
+  ],
+  sponsors: [
+    // "sponsors/logo1.png"
+  ],
+  mensajes: ["Bienvenidos", "Pedí tu saludo por WhatsApp"],
+
+  // Tiempos por defecto (el Sheet puede cambiarlos con filas "config")
+  sponsorCadaSeg: 10,
+  mensajeCadaSeg: 7,
+  sheetRefrescarSeg: 20
+};
+
+/* =====================================================
+   Código (sin async/fetch/let por compatibilidad con TVs viejas)
+   ===================================================== */
+var $ = function (id) { return document.getElementById(id); };
+var video = $("video"), barra = $("barra"), sponsorImg = $("sponsorImg"), sponsorBox = $("sponsor");
+var mensajeTxt = $("mensajeTxt"), debugBox = $("debug");
+
+// "datos" es lo que se está mostrando AHORA (arranca con los respaldos y el Sheet lo pisa)
+var datos = {
+  videos: CONFIG.videos.slice(), sponsors: CONFIG.sponsors.slice(), mensajes: CONFIG.mensajes.slice(),
+  sponsorCadaSeg: CONFIG.sponsorCadaSeg, mensajeCadaSeg: CONFIG.mensajeCadaSeg, sheetRefrescarSeg: CONFIG.sheetRefrescarSeg
+};
+var estado = { videoIdx: -1, videoActual: "", sponsorIdx: -1, mensajeIdx: -1, sheet: "sin configurar" };
+
+var CACHE_KEY = "pantalla_csv_v1";
+var sheetUrl = CONFIG.sheetCsvUrl;
+var m = location.search.match(/[?&]sheet=([^&]+)/);
+if (m) { sheetUrl = decodeURIComponent(m[1]); }
+
+if (location.search.indexOf("debug") !== -1) { debugBox.style.display = "block"; }
+function log() {
+  if (debugBox.style.display === "none") { return; }
+  debugBox.textContent =
+    "video " + (estado.videoIdx + 1) + "/" + datos.videos.length +
+    "\nsponsors: " + datos.sponsors.length + " | mensajes: " + datos.mensajes.length +
+    "\nsheet: " + estado.sheet +
+    "\ncada: sponsor " + datos.sponsorCadaSeg + "s, mensaje " + datos.mensajeCadaSeg + "s, refresco " + datos.sheetRefrescarSeg + "s";
+}
+
+/* ---------- Videos en loop ---------- */
+function mostrarVideo(si) { video.style.display = si ? "block" : "none"; }
+
+function siguienteVideo() {
+  var lista = datos.videos;
+  if (!lista.length) { mostrarVideo(false); video.pause(); estado.videoActual = ""; return; }
+  estado.videoIdx = (estado.videoIdx + 1) % lista.length;
+  var url = lista[estado.videoIdx];
+  mostrarVideo(true);
+  if (url === estado.videoActual && video.getAttribute("src")) {
+    video.currentTime = 0; // un solo video: reinicia en vez de recargar
+  } else {
+    video.src = url;
+    estado.videoActual = url;
+  }
+  var p = video.play();
+  if (p && p.catch) { p.catch(function () { setTimeout(siguienteVideo, 2000); }); }
+  log();
+}
+video.addEventListener("ended", siguienteVideo);
+// Si un video falla (archivo roto, WiFi caído), saltea al siguiente en vez de quedarse trabado
+video.addEventListener("error", function () { setTimeout(siguienteVideo, 1500); });
+// Si el video se congela, lo detecta y lo saltea
+var ultimoTiempo = -1, congelado = 0;
+setInterval(function () {
+  if (!datos.videos.length || video.paused) { return; }
+  if (video.currentTime === ultimoTiempo) { congelado++; } else { congelado = 0; }
+  ultimoTiempo = video.currentTime;
+  if (congelado >= 5) { congelado = 0; siguienteVideo(); }
+}, 2000);
+
+// Cuando el Sheet cambia la lista: no corta el video actual, solo ajusta lo que viene después
+function actualizarVideos(nueva) {
+  if (nueva.join("|") === datos.videos.join("|")) { return; }
+  var estabaVacio = !datos.videos.length;
+  datos.videos = nueva;
+  if (!nueva.length) { siguienteVideo(); return; }
+  if (estabaVacio || !estado.videoActual) { estado.videoIdx = -1; siguienteVideo(); return; }
+  var pos = -1, i;
+  for (i = 0; i < nueva.length; i++) { if (nueva[i] === estado.videoActual) { pos = i; break; } }
+  estado.videoIdx = pos; // si el actual ya no está, sigue con el primero de la lista nueva
+  log();
+}
+
+/* ---------- Sponsors (cadena de timeouts para que el tiempo del Sheet aplique al instante) ---------- */
+function rotarSponsor() {
+  if (!datos.sponsors.length) { sponsorBox.style.display = "none"; }
+  else {
+    sponsorBox.style.display = "flex";
+    estado.sponsorIdx = (estado.sponsorIdx + 1) % datos.sponsors.length;
+    sponsorImg.src = datos.sponsors[estado.sponsorIdx];
+  }
+  log();
+  setTimeout(rotarSponsor, Math.max(2, datos.sponsorCadaSeg) * 1000);
+}
+
+/* ---------- Mensajes ---------- */
+function rotarMensaje() {
+  if (!datos.mensajes.length) { barra.className = ""; }
+  else {
+    barra.className = "visible";
+    mensajeTxt.className = "";
+    setTimeout(function () {
+      if (!datos.mensajes.length) { return; }
+      estado.mensajeIdx = (estado.mensajeIdx + 1) % datos.mensajes.length;
+      mensajeTxt.textContent = datos.mensajes[estado.mensajeIdx];
+      mensajeTxt.className = "on";
+      log();
+    }, 500);
+  }
+  setTimeout(rotarMensaje, Math.max(2, datos.mensajeCadaSeg) * 1000);
+}
+
+/* ---------- Google Sheet ----------
+   Columnas:  A = tipo (video / sponsor / mensaje / config)
+              B = contenido (ruta del archivo, texto, o nombre de la config)
+              C = "NO" para ocultar la fila sin borrarla  (en config: el valor)       */
+function parseCsv(txt) {
+  var filas = [], fila = [], campo = "", comillas = false, i, c;
+  for (i = 0; i < txt.length; i++) {
+    c = txt.charAt(i);
+    if (comillas) {
+      if (c === '"' && txt.charAt(i + 1) === '"') { campo += '"'; i++; }
+      else if (c === '"') { comillas = false; }
+      else { campo += c; }
+    } else if (c === '"') { comillas = true; }
+    else if (c === ",") { fila.push(campo); campo = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && txt.charAt(i + 1) === "\n") { i++; }
+      fila.push(campo); filas.push(fila); fila = []; campo = "";
+    } else { campo += c; }
+  }
+  if (campo !== "" || fila.length) { fila.push(campo); filas.push(fila); }
+  return filas;
+}
+function limpiar(s) { return (s || "").replace(/^\s+|\s+$/g, ""); }
+
+function aplicarCsv(txt) {
+  var filas = parseCsv(txt), vids = [], spons = [], msgs = [], cfg = {}, i, tipo, val, extra;
+  for (i = 0; i < filas.length; i++) {
+    tipo = limpiar(filas[i][0]).toLowerCase();
+    val = limpiar(filas[i][1]);
+    extra = limpiar(filas[i][2]);
+    if (!val) { continue; }
+    if (tipo === "config") { cfg[val] = extra; continue; }
+    if (extra.toUpperCase() === "NO") { continue; }
+    if (tipo === "video") { vids.push(val); }
+    else if (tipo === "sponsor") { spons.push(val); }
+    else if (tipo === "mensaje") { msgs.push(val); }
+  }
+  // Si una categoría viene vacía en el Sheet, se usa el respaldo: la pantalla nunca queda vacía por un error
+  actualizarVideos(vids.length ? vids : CONFIG.videos.slice());
+  datos.sponsors = spons.length ? spons : CONFIG.sponsors.slice();
+  datos.mensajes = msgs.length ? msgs : CONFIG.mensajes.slice();
+  var claves = ["sponsorCadaSeg", "mensajeCadaSeg", "sheetRefrescarSeg"], k, n;
+  for (k = 0; k < claves.length; k++) {
+    n = parseFloat(cfg[claves[k]]);
+    if (n > 0) { datos[claves[k]] = n; } else { datos[claves[k]] = CONFIG[claves[k]]; }
+  }
+}
+
+function guardarCache(txt) { try { localStorage.setItem(CACHE_KEY, txt); } catch (e) {} }
+function leerCache() { try { return localStorage.getItem(CACHE_KEY); } catch (e) { return null; } }
+
+function leerSheet() {
+  if (sheetUrl) {
+    var xhr = new XMLHttpRequest();
+    // El parámetro evita que el navegador de la TV use una copia vieja
+    var url = sheetUrl + (sheetUrl.indexOf("?") === -1 ? "?" : "&") + "t=" + new Date().getTime();
+    xhr.open("GET", url, true);
+    xhr.timeout = 10000;
+    xhr.onload = function () {
+      if (xhr.status === 200 && xhr.responseText) {
+        aplicarCsv(xhr.responseText); guardarCache(xhr.responseText); estado.sheet = "ok";
+      } else { estado.sheet = "error " + xhr.status + " (usa lo último que funcionó)"; }
+      log();
+    };
+    xhr.onerror = xhr.ontimeout = function () { estado.sheet = "sin conexión (usa lo último que funcionó)"; log(); };
+    xhr.send();
+  }
+  setTimeout(leerSheet, Math.max(5, datos.sheetRefrescarSeg) * 1000);
+}
+
+/* ---------- Arranque ---------- */
+// 1) Arranca con la última copia guardada del Sheet (sirve si la TV se reinicia sin WiFi)
+var guardado = leerCache();
+if (guardado) { try { aplicarCsv(guardado); estado.sheet = "copia guardada"; } catch (e) {} }
+// 2) Arranca todo
+if (datos.videos.length && !estado.videoActual) { siguienteVideo(); } else if (!datos.videos.length) { mostrarVideo(false); }
+rotarSponsor();
+rotarMensaje();
+leerSheet();
+
+// Recarga completa cada 6 horas para limpiar memoria del navegador de la TV
+setTimeout(function () { location.reload(); }, 6 * 60 * 60 * 1000);
+</script>
+</body>
+</html>
