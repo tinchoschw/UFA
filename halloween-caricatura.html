@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Halloween en pantalla · prototipo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#12081f;--panel:#1d1030;--ink:#f3ead7;--mut:#a99bc2;--pk:#ff7a1a;--line:#3a2658;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 310px;gap:20px;align-items:start}
+@media(max-width:840px){.wrap{grid-template-columns:1fr}}
+h1{font:22px/1.2 "Bowlby One",Impact,sans-serif;margin:0 0 4px;color:var(--pk)}
+.sub{color:var(--mut);margin:0 0 14px}
+.tv{container-type:size;aspect-ratio:16/9;background:#000;border:2px solid var(--line);border-radius:10px;position:relative;overflow:hidden}
+.scr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center}
+.scr.on{display:flex}
+#s-wait{gap:6cqw;padding:0 5cqw}
+#s-wait .t{font-size:3.4cqw;color:var(--mut)}
+#code{font:13cqw/1 "Bowlby One",Impact,sans-serif;color:var(--pk);letter-spacing:.04em;margin-top:2cqw}
+#qr{background:#fff;padding:1.2cqw;border-radius:1cqw;width:24cqw;height:24cqw;flex:none}
+#qr svg{width:100%;height:100%;display:block}
+#s-busy{flex-direction:column;gap:3cqw}
+.pk{font-size:16cqw;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.12) rotate(-4deg)}}
+@media(prefers-reduced-motion:reduce){.pk{animation:none}}
+#s-busy .t{font:5cqw "Bowlby One",Impact,sans-serif;color:var(--pk)}
+#s-show{flex-direction:column;gap:2cqw}
+#pic canvas{height:78cqh;aspect-ratio:1;border-radius:2cqw;box-shadow:0 0 6cqw #ff7a1a66;display:block}
+#barw{width:50cqw;height:1.2cqh;background:#2a1a40;border-radius:9px;overflow:hidden}
+#bar{height:100%;width:100%;background:var(--pk)}
+.cfg{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.cfg label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:13px}
+.cfg input[type=number]{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px;font:inherit}
+.cfg .chk{flex-direction:row;align-items:center;gap:8px}
+#appr{display:none;margin-top:12px;background:var(--panel);border:1px solid var(--pk);border-radius:10px;padding:12px;gap:12px;align-items:center}
+#appr.on{display:flex}
+#apprPrev canvas{width:90px;height:90px;border-radius:8px;display:block}
+.phone{width:310px;max-width:100%;border:2px solid var(--line);border-radius:28px;padding:18px;background:var(--panel);min-height:540px;margin:0 auto}
+.phone h2{font-size:17px;margin:0 0 10px}
+.st{display:none;flex-direction:column;gap:12px}
+.st.on{display:flex}
+input[type=text]{font:26px "Bowlby One",Impact,sans-serif;letter-spacing:.2em;text-align:center;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px;background:var(--pk);color:#1a0a00;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.err{color:#ff8f8f;min-height:1.3em;font-size:14px}
+.ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--mut)}
+#prev{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--bg);display:none}
+#prev[src]{display:block}
+.stars{display:flex;gap:4px;justify-content:center}
+.stars button{background:transparent;color:#5a4778;font-size:28px;padding:2px 6px;line-height:1}
+.stars button.on{color:var(--pk)}
+.q{font-size:14px}
+textarea{font:inherit;font-size:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;width:100%;resize:vertical;min-height:70px}
+details.cfg{display:block;margin-top:14px}
+details li{margin:4px 0;color:var(--ink);font-size:14px}
+.note{color:var(--mut);font-size:12px;margin-top:10px}
+</style></head>
+<body>
+<div class="wrap">
+<main>
+  <h1>Halloween en pantalla</h1>
+  <p class="sub">Prototipo del flujo. A la izquierda la TV del boliche, a la derecha el celular de quien participa.</p>
+  <div class="tv" aria-label="Pantalla del boliche">
+    <div class="scr on" id="s-wait">
+      <div><div class="t">Escaneá el QR y escribí este código</div><div id="code">000 000</div></div>
+      <div id="qr"></div>
+    </div>
+    <div class="scr" id="s-busy"><div class="pk">🎃</div><div class="t">Halloweeneando una foto…</div></div>
+    <div class="scr" id="s-show"><div id="pic"></div><div id="barw"><div id="bar"></div></div></div>
+  </div>
+  <div id="appr"><div id="apprPrev"></div><div style="display:flex;flex-direction:column;gap:8px"><b>Aprobación manual</b><div style="display:flex;gap:8px"><button id="ok">Mostrar</button><button id="no" class="ghost">Rechazar</button></div></div></div>
+  <div class="cfg">
+    <label>Segundos en pantalla<input type="number" id="c-show" value="15" min="3"></label>
+    <label>Intentos máximos por persona<input type="number" id="c-max" value="3" min="1"></label>
+    <label>Espera entre intentos (s)<input type="number" id="c-cool" value="30" min="0"></label>
+    <label>Tiempo para completar (s)<input type="number" id="c-lock" value="90" min="10"></label>
+    <label class="chk"><input type="checkbox" id="c-man"> Aprobar antes de mostrar</label>
+    <button class="ghost" id="c-reset">Reiniciar intentos</button>
+  </div>
+  <details class="cfg"><summary>Respuestas guardadas (simulado): <span id="nsv">0</span></summary><ol id="sv"></ol></details>
+  <p class="note">Caricatura local: detecta la cara en el celular (MediaPipe), agranda ojos y cabeza, y dibuja sombrero, cicatriz, colmillos y sangre. La foto original se descarta apenas se procesa y nada se sube a ningún servidor. La detección de cara y el estado compartido real quedan para la versión con backend.</p>
+</main>
+
+<div class="phone">
+  <div class="st on" id="st-code">
+    <h2>Tu foto, versión Halloween</h2>
+    <div class="q">Escribí el código de 6 números que ves en la pantalla.</div>
+    <input type="text" id="in" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Código de 6 números">
+    <div class="err" id="err" role="alert"></div>
+    <button id="go">Entrar</button>
+  </div>
+  <div class="st" id="st-form">
+    <h2>Sacate una foto</h2>
+    <img id="prev" alt="Vista previa de tu foto"><div class="err" id="ferr" role="alert"></div>
+    <input type="file" id="file" accept="image/*" capture="user" aria-label="Foto">
+    <div class="q">¿Qué te parecen las pantallas del boliche?</div>
+    <div class="stars" id="stars"></div>
+    <div class="q">¿Qué sugerencias nos harías? (opcional)</div>
+    <textarea id="sug" maxlength="500" placeholder="Escribí lo que quieras" aria-label="Sugerencias"></textarea>
+    <label class="ck"><input type="checkbox" id="age"> Soy mayor de 18 años.</label>
+    <label class="ck"><input type="checkbox" id="tc"> Acepto que mi foto se transforme y se muestre en la pantalla del boliche; se procesa y se borra al instante. Mis respuestas se guardan sin nombre ni foto.</label>
+    <button id="send" disabled>Enviar foto</button>
+  </div>
+  <div class="st" id="st-done">
+    <h2 id="done-h">Procesando</h2>
+    <div class="q" id="done-t"></div>
+    <button id="retry" class="ghost" style="display:none">Probar de nuevo</button>
+  </div>
+</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const S={show:15,max:3,cool:30,lock:90,man:false};
+let faceOK=false,phase='wait',code='',attempts=0,lastSend=0,lockT=null,showT=null,result=null,photoURL=null,rating=0;
+
+// config
+[['c-show','show'],['c-max','max'],['c-cool','cool'],['c-lock','lock']].forEach(([id,k])=>$('#'+id).oninput=e=>{S[k]=Math.max(0,+e.target.value||0)});
+$('#c-man').onchange=e=>S.man=e.target.checked;
+$('#c-reset').onclick=()=>{attempts=0;lastSend=0;$('#err').textContent='Intentos reiniciados.'};
+
+// QR
+try{const q=qrcode(0,'M');q.addData(location.href.split('#')[0]);q.make();$('#qr').innerHTML=q.createSvgTag({cellSize:4,margin:0})}catch(e){$('#qr').textContent='QR'}
+
+// stars
+for(let i=1;i<=5;i++){const b=document.createElement('button');b.textContent='★';b.setAttribute('aria-label',i+' estrellas');b.onclick=()=>{rating=i;[...$('#stars').children].forEach((x,j)=>x.classList.toggle('on',j<i))};$('#stars').append(b)}
+
+const map={wait:'s-wait',locked:'s-busy',processing:'s-busy',show:'s-show'};
+function setPhase(p){phase=p;document.querySelectorAll('.scr').forEach(e=>e.classList.toggle('on',e.id===map[p]))}
+function step(n){document.querySelectorAll('.st').forEach(e=>e.classList.toggle('on',e.id==='st-'+n))}
+function err(m){$('#err').textContent=m||''}
+function newCode(){code=String(Math.floor(Math.random()*1e6)).padStart(6,'0');$('#code').textContent=code.slice(0,3)+' '+code.slice(3)}
+function dropPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;$('#prev').removeAttribute('src');$('#file').value='';rating=0;[...$('#stars').children].forEach(x=>x.classList.remove('on'));$('#age').checked=$('#tc').checked=false;$('#sug').value='';faceOK=false;$('#ferr').textContent='';chk()}
+function tvReset(){clearTimeout(showT);result=null;$('#pic').replaceChildren();$('#apprPrev').replaceChildren();$('#appr').classList.remove('on');newCode();setPhase('wait')}
+function fullReset(m){clearTimeout(lockT);dropPhoto();tvReset();step('code');$('#in').value='';err(m)}
+function chk(){$('#send').disabled=!(photoURL&&faceOK&&$('#age').checked&&$('#tc').checked)}
+function done(h,t,retry){$('#done-h').textContent=h;$('#done-t').textContent=t;$('#retry').style.display=retry&&attempts<S.max?'block':'none';step('done')}
+
+// phone: code
+$('#go').onclick=()=>{
+  const v=$('#in').value.trim();
+  const wait=Math.ceil((lastSend+S.cool*1000-Date.now())/1000);
+  if(attempts>=S.max)return err('Llegaste al máximo de intentos de esta noche.');
+  if(wait>0)return err('Esperá '+wait+' s para probar de nuevo.');
+  if(phase!=='wait')return err('La pantalla está ocupada. Esperá el próximo código.');
+  if(v!==code)return err('Código incorrecto. Revisá la pantalla.');
+  err('');setPhase('locked');step('form');
+  lockT=setTimeout(()=>{fullReset('Se acabó el tiempo. Escribí el nuevo código.')},S.lock*1000);
+};
+$('#in').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+
+// phone: form
+$('#file').onchange=e=>{const f=e.target.files[0];if(photoURL)URL.revokeObjectURL(photoURL);photoURL=f?URL.createObjectURL(f):null;faceOK=false;$('#ferr').textContent='';if(photoURL){$('#prev').src=photoURL;checkFace(photoURL)}chk()};
+$('#age').onchange=$('#tc').onchange=chk;
+$('#send').onclick=()=>{
+  attempts++;lastSend=Date.now();clearTimeout(lockT);setPhase('processing');save(rating,$('#sug').value.trim());
+  done('Procesando','Halloweeneando tu foto…',false);
+  const img=new Image();
+  img.onerror=()=>{dropPhoto();fullReset('No pudimos leer la foto. Probá con otra.')};
+  img.onload=async()=>{
+    img.onerror=null;img.onload=null;result=await halloween(img);dropPhoto();   // original descartada
+    await sleep(3000);                              // simula la espera de la IA
+    if(S.man){$('#apprPrev').replaceChildren(result);$('#appr').classList.add('on');done('En revisión','Tu foto está esperando aprobación.',false)}
+    else display();
+  };
+  img.src=photoURL;
+};
+$('#retry').onclick=()=>{step('code');$('#in').value='';err('')};
+
+// manual approval
+$('#ok').onclick=()=>{$('#appr').classList.remove('on');display()};
+$('#no').onclick=()=>{tvReset();done('No aprobada','Tu foto no fue aprobada.',true)};
+
+function display(){
+  if(!result)return;
+  $('#appr').classList.remove('on');$('#pic').replaceChildren(result);setPhase('show');
+  const b=$('#bar');b.style.transition='none';b.style.width='100%';void b.offsetWidth;b.style.transition='width '+S.show+'s linear';b.style.width='0%';
+  done('¡Listo!','Mirá la pantalla, ya estás en Halloween.',true);
+  showT=setTimeout(()=>{tvReset();done('¡Gracias!','Tu foto ya salió de la pantalla.',true)},S.show*1000);
+}
+
+// ---- Caricatura Halloween 100% local (MediaPipe Face Landmarker + canvas) ----
+const MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14',MODEL='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+let LM=null,LMp=null;
+function loadLM(){return LMp||(LMp=(async()=>{try{const m=await import(MP+'/vision_bundle.mjs');const fs=await m.FilesetResolver.forVisionTasks(MP+'/wasm');LM=await m.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MODEL},runningMode:'IMAGE',numFaces:3})}catch(e){console.warn('FaceLandmarker no disponible',e);LM=null}return LM})())}
+loadLM();
+async function checkFace(url){
+  $('#ferr').textContent='Buscando tu cara…';
+  const lm=await loadLM();
+  if(!lm){faceOK=true;$('#ferr').textContent='';chk();return}
+  try{const im=new Image();im.src=url;await im.decode();const n=lm.detect(im).faceLandmarks.length;if(url!==photoURL)return;faceOK=n>0;$('#ferr').textContent=n?'':'No te vemos la cara. Probá de frente y con más luz.'}catch(e){faceOK=true;$('#ferr').textContent=''}
+  chk();
+}
+const av=(f,...i)=>({x:i.reduce((s,k)=>s+f[k].x,0)/i.length,y:i.reduce((s,k)=>s+f[k].y,0)/i.length});
+function feat(f){const g={A:av(f,33,133,159,145),B:av(f,263,362,386,374),M:av(f,61,291,13,14),nose:f[1],fo:f[10],ch:f[152],c1:f[61],c2:f[291],up:f[13],fl:f[234],fr:f[454]};
+  g.ed=Math.hypot(g.B.x-g.A.x,g.B.y-g.A.y);g.mw=Math.hypot(g.c2.x-g.c1.x,g.c2.y-g.c1.y);g.fw=Math.abs(g.fr.x-g.fl.x);g.fh=Math.abs(g.ch.y-g.fo.y);return g}
+function bulge(p,N,cx,cy,r,k){
+  const s=p.slice(),x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(N-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(N-1,Math.ceil(cy+r));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy)/r;if(d>=1)continue;
+    const f=1-k*(1-d*d),sx=Math.round(cx+dx*f),sy=Math.round(cy+dy*f),o=(y*N+x)*4,q=(sy*N+sx)*4;
+    p[o]=s[q];p[o+1]=s[q+1];p[o+2]=s[q+2];
+  }
+}
+function bat(x,cx,cy,s){x.save();x.translate(cx,cy);x.scale(s,s);x.beginPath();x.moveTo(0,0);x.quadraticCurveTo(-20,-30,-60,-20);x.quadraticCurveTo(-45,-5,-40,10);x.quadraticCurveTo(-25,0,-15,15);x.quadraticCurveTo(-8,5,0,12);x.quadraticCurveTo(8,5,15,15);x.quadraticCurveTo(25,0,40,10);x.quadraticCurveTo(45,-5,60,-20);x.quadraticCurveTo(20,-30,0,0);x.fill();x.restore()}
+function web(x,cx,cy,dx,dy,R){
+  const pts=k=>Array.from({length:5},(_,i)=>{const a=i/4*Math.PI/2;return[cx+dx*Math.cos(a)*R*k,cy+dy*Math.sin(a)*R*k]});
+  x.beginPath();pts(1).forEach(q=>{x.moveTo(cx,cy);x.lineTo(q[0],q[1])});
+  for(let k=1;k<=4;k++){const q=pts(k/4);x.moveTo(q[0][0],q[0][1]);for(let i=1;i<5;i++){const mx=(q[i-1][0]+q[i][0])/2,my=(q[i-1][1]+q[i][1])/2;x.quadraticCurveTo(cx+(mx-cx)*.86,cy+(my-cy)*.86,q[i][0],q[i][1])}}
+  x.stroke();
+}
+function accesorios(x,g){
+  const ink='#12081f';
+  // ojos rojos brillantes
+  [g.A,g.B].forEach(e=>{const r=g.ed*.2,gr=x.createRadialGradient(e.x,e.y,0,e.x,e.y,r);gr.addColorStop(0,'rgba(255,40,40,.75)');gr.addColorStop(1,'rgba(255,40,40,0)');x.fillStyle=gr;x.beginPath();x.arc(e.x,e.y,r,0,7);x.fill()});
+  // sombrero de bruja
+  const cx=(g.fl.x+g.fr.x)/2,w=g.fw*1.5,by=g.fo.y-g.fh*.03,h=g.fh*1.1;
+  x.fillStyle=ink;x.strokeStyle='#ff7a1a';x.lineWidth=Math.max(4,g.fw*.02);
+  x.beginPath();x.moveTo(cx-w*.3,by);x.quadraticCurveTo(cx-w*.05,by-h*.55,cx+w*.12,by-h);x.quadraticCurveTo(cx+w*.1,by-h*.5,cx+w*.3,by);x.closePath();x.fill();x.stroke();
+  x.beginPath();x.ellipse(cx,by,w/2,w*.07,0,0,7);x.fill();x.stroke();
+  x.fillStyle='#ff7a1a';x.beginPath();x.ellipse(cx,by-h*.04,w*.3,w*.035,0,0,7);x.fill();
+  // cicatriz con puntos sobre el ojo A
+  const u=g.ed,a={x:g.A.x+u*.28,y:g.A.y-u*.85},b={x:g.A.x-u*.22,y:g.A.y+u*.9};
+  x.lineCap='round';x.strokeStyle='#8c0a14';x.lineWidth=u*.07;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();
+  x.strokeStyle='#ffe9b0';x.lineWidth=u*.03;
+  for(let t=.15;t<=.85;t+=.14){const px=a.x+(b.x-a.x)*t,py=a.y+(b.y-a.y)*t;x.beginPath();x.moveTo(px-u*.1,py-u*.03);x.lineTo(px+u*.1,py+u*.03);x.stroke()}
+  // colmillos
+  x.fillStyle='#fff4d6';x.strokeStyle=ink;x.lineWidth=Math.max(2,g.mw*.02);
+  [-1,1].forEach(s=>{const fx=g.M.x+s*g.mw*.2,fy=g.up.y+g.mw*.02;x.beginPath();x.moveTo(fx-g.mw*.05,fy);x.lineTo(fx+g.mw*.05,fy);x.lineTo(fx,fy+g.mw*.2);x.closePath();x.fill();x.stroke()});
+  // sangre que gotea de la comisura
+  x.fillStyle='#d00000';x.strokeStyle='#d00000';x.lineWidth=g.mw*.07;
+  const cx2=g.c2.x,cy2=g.c2.y;x.beginPath();x.moveTo(cx2,cy2);x.lineTo(cx2+g.mw*.02,cy2+g.mw*.55);x.stroke();x.beginPath();x.arc(cx2+g.mw*.02,cy2+g.mw*.58,g.mw*.07,0,7);x.fill();
+  x.lineWidth=g.mw*.05;x.beginPath();x.moveTo(cx2-g.mw*.12,cy2+g.mw*.06);x.lineTo(cx2-g.mw*.12,cy2+g.mw*.28);x.stroke();
+}
+async function halloween(img){
+  const N=720,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
+  const s=Math.min(img.width,img.height);
+  x.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,N,N);
+  let faces=[];const lm=await loadLM();
+  if(lm){try{faces=lm.detect(c).faceLandmarks.map(f=>feat(f.map(q=>({x:q.x*N,y:q.y*N}))))}catch(e){}}
+  const d=x.getImageData(0,0,N,N),p=d.data;
+  faces.forEach(g=>{bulge(p,N,g.nose.x,g.nose.y,g.fw*.85,.3);bulge(p,N,g.A.x,g.A.y,g.ed*.42,.55);bulge(p,N,g.B.x,g.B.y,g.ed*.42,.55);bulge(p,N,g.M.x,g.M.y,g.mw*.75,.35)});
+  let sum=0;for(let i=0;i<p.length;i+=4)sum+=.299*p[i]+.587*p[i+1]+.114*p[i+2];
+  const avg=sum/(p.length/4)/255,gain=Math.min(3,Math.max(.8,.45/Math.max(avg,.05)));
+  const pal=[[18,8,31],[88,28,140],[255,122,26],[255,201,51],[255,244,214]],n=pal.length;
+  for(let i=0;i<p.length;i+=4){
+    let l=Math.min(1,(.299*p[i]+.587*p[i+1]+.114*p[i+2])/255*gain);l=l*l*(3-2*l);
+    const t=l*(n-1),b=Math.min(n-2,Math.floor(t)),f=Math.min(1,Math.max(0,(t-b-.35)/.3)),A=pal[b],B=pal[b+1];
+    p[i]=A[0]+(B[0]-A[0])*f;p[i+1]=A[1]+(B[1]-A[1])*f;p[i+2]=A[2]+(B[2]-A[2])*f;
+  }
+  x.putImageData(d,0,0);
+  const g=x.createRadialGradient(N/2,N/2,N*.35,N/2,N/2,N*.74);g.addColorStop(0,'rgba(10,0,20,0)');g.addColorStop(1,'rgba(10,0,20,.7)');
+  x.fillStyle=g;x.fillRect(0,0,N,N);
+  x.save();x.shadowColor='#ffc933';x.shadowBlur=40;x.fillStyle='#fff4d6';x.beginPath();x.arc(630,100,55,0,7);x.fill();x.restore();
+  x.fillStyle='#12081f';bat(x,500,80,.9);bat(x,575,210,.6);bat(x,110,190,.7);
+  x.strokeStyle='rgba(255,244,214,.55)';x.lineWidth=2;web(x,0,0,1,1,230);web(x,N,0,-1,1,200);
+  faces.forEach(f=>accesorios(x,f));
+  x.textBaseline='top';[['👻',570,500,130],['🎃',20,490,150]].forEach(([e,a,b,z])=>{x.font=z+'px serif';x.fillText(e,a,b)});
+  x.textAlign='center';x.font='46px "Bowlby One",Impact,sans-serif';x.lineWidth=8;x.strokeStyle='#12081f';x.strokeText('Feliz Halloween',N/2,640);x.fillStyle='#f3ead7';x.fillText('Feliz Halloween',N/2,640);
+  return c;
+}
+function save(r,t){const li=document.createElement('li');li.textContent=(r?'★'.repeat(r):'sin estrellas')+(t?' · '+t:'');$('#sv').append(li);$('#nsv').textContent=$('#sv').children.length}
+newCode();
+</script>
+</body></html>
