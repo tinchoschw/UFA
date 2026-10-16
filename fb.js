@@ -5,6 +5,6 @@ import {FB_CONFIG} from './config.js';
 export * from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 export * from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 export const app=initializeApp(FB_CONFIG),auth=getAuth(app),db=getFirestore(app);
-export const DEF={enabled:true,ai:false,aiCap:150,showSecs:15,maxAttempts:3,cooldownSecs:30,lockSecs:90,manual:false,offUrl:''};
+export const DEF={enabled:true,ai:false,aiCap:150,showSecs:15,maxAttempts:3,cooldownSecs:30,lockSecs:90,manual:false,offUrl:'',titulo:'¡Subí tu foto estilo Halloween! 🎃'};
 export const refs={cfg:doc(db,'cfg','main'),state:doc(db,'screen','state'),secret:doc(db,'screen','secret')};
 export const watchCfg=cb=>onSnapshot(refs.cfg,s=>cb({...DEF,...(s.exists()?s.data():{})}));

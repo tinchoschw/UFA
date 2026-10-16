@@ -6,6 +6,7 @@ html,body{height:100%;overflow:hidden;background:#000}
 .scr{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center}
 .scr.on{display:flex}
 #s-wait{gap:6vw;padding:0 5vw}#s-wait .t{font-size:3vw;color:var(--mut)}
+#tit{font:5.2vw/1.1 "Bowlby One",Impact,sans-serif;color:var(--ink);margin-bottom:2.5vw}
 #code{font:11vw/1 "Bowlby One",Impact,sans-serif;color:var(--pk);letter-spacing:.04em;margin-top:2vw}
 #qr{background:#fff;padding:1.2vw;border-radius:1vw;width:26vw;height:26vw;flex:none}#qr svg{width:100%;height:100%;display:block}
 #s-busy{flex-direction:column;gap:3vw}.pk{font-size:16vw;animation:pulse 1.2s ease-in-out infinite}
@@ -19,7 +20,7 @@ html,body{height:100%;overflow:hidden;background:#000}
 </style></head><body>
 <div class="scr" id="s-login"><h1>Pantalla TV</h1><input type="email" id="em" placeholder="Email" autocomplete="username"><input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password"><button id="li">Entrar</button><div class="err" id="le"></div></div>
 <div class="scr" id="s-off"><iframe id="off" title="Visuales"></iframe></div>
-<div class="scr" id="s-wait"><div><div class="t">Escaneá el QR y escribí este código</div><div id="code">000 000</div></div><div id="qr"></div></div>
+<div class="scr" id="s-wait"><div><div id="tit"></div><div class="t">Escaneá el QR y escribí este código</div><div id="code">000 000</div></div><div id="qr"></div></div>
 <div class="scr" id="s-busy"><div class="pk">🎃</div><div class="t">Halloweeneando una foto…</div></div>
 <div class="scr" id="s-show"><img id="pic" alt="Foto Halloween"><div id="barw"><div id="bar"></div></div></div>
 <script type="module">
@@ -56,7 +57,7 @@ function render(){
   if(!cfg)return;
   if(!cfg.enabled){const f=$('#off');if(f.dataset.u!==cfg.offUrl){f.dataset.u=cfg.offUrl;if(cfg.offUrl)f.src=cfg.offUrl;else f.removeAttribute('src')}scr('s-off');return}
   if(!st){scr('s-busy');return}
-  if(st.phase==='wait'){$('#code').textContent=code.slice(0,3)+' '+code.slice(3);scr('s-wait')}
+  if(st.phase==='wait'){$('#tit').textContent=cfg.titulo;$('#code').textContent=code.slice(0,3)+' '+code.slice(3);scr('s-wait')}
   else if(st.phase==='show'&&st.img){$('#pic').src=st.img;scr('s-show')}
   else scr('s-busy');
 }
