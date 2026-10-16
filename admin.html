@@ -1,0 +1,62 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Panel Halloween</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="estilo.css">
+<style>
+main{max-width:720px;margin:0 auto;padding:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:13px}
+label.sw{flex-direction:row;align-items:center;gap:10px;color:var(--ink);font-size:15px}
+small{color:var(--mut)}#ai{width:160px;border-radius:10px}
+ol{padding-left:20px}li{margin:6px 0}
+</style></head><body><main>
+<div id="login" class="card"><h1>Panel</h1><div class="grid"><input type="email" id="em" placeholder="Email" autocomplete="username"><input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password"></div><div class="err" id="le"></div><button id="li">Entrar</button></div>
+<div id="panel" hidden>
+<h1>Panel Halloween</h1>
+<div class="card"><div id="stat"></div><br><button class="ghost" id="rst">Reiniciar pantalla</button></div>
+<div class="card" id="appr" hidden><b>Foto esperando aprobación</b><br><br><img id="ai" alt="Foto a aprobar"><br><br><button id="ok">Mostrar</button> <button class="ghost" id="no">Rechazar</button></div>
+<div class="card"><div class="grid">
+<label class="sw"><input type="checkbox" data-k="enabled"> Funcionalidad activa (la TV muestra Halloween)</label>
+<label class="sw"><input type="checkbox" data-k="manual"> Aprobar fotos antes de mostrar</label>
+<label class="sw"><input type="checkbox" data-k="ai" disabled> Usar IA <small>(se conecta en el próximo paso)</small></label>
+</div><br><div class="grid">
+<label>Segundos en pantalla<input type="number" data-k="showSecs" min="3"></label>
+<label>Intentos máximos por persona<input type="number" data-k="maxAttempts" min="1"></label>
+<label>Espera entre intentos (s)<input type="number" data-k="cooldownSecs" min="0"></label>
+<label>Tiempo para completar (s)<input type="number" data-k="lockSecs" min="10"></label>
+<label>Tope diario de fotos con IA<input type="number" data-k="aiCap" min="0" disabled></label>
+<label>URL de tus visuales normales (cuando está apagado)<input type="text" data-k="offUrl" placeholder="https://..."></label>
+</div></div>
+<div class="card"><b>Respuestas: <span id="n">0</span></b> <button class="ghost" id="csv">Descargar CSV</button><ol id="rs"></ol></div>
+</div>
+</main>
+<script type="module">
+import {auth,db,refs,DEF,watchCfg,onAuthStateChanged,signInWithEmailAndPassword,onSnapshot,setDoc,updateDoc,collection,query,orderBy,limit} from './fb.js';
+const $=s=>document.querySelector(s);
+let cfg={...DEF},st=null,code='',rows=[],started=false;
+$('#li').onclick=()=>signInWithEmailAndPassword(auth,$('#em').value.trim(),$('#pw').value).catch(()=>{$('#le').textContent='Email o contraseña incorrectos.'});
+onAuthStateChanged(auth,u=>{const ok=u&&!u.isAnonymous;$('#login').hidden=ok;$('#panel').hidden=!ok;if(ok&&!started){started=true;go()}});
+function go(){
+  watchCfg(c=>{cfg=c;fill();view()});
+  onSnapshot(refs.state,s=>{st=s.exists()?s.data():null;view()});
+  onSnapshot(refs.secret,s=>{code=s.exists()?s.data().code:'';view()});
+  onSnapshot(query(collection(db,'responses'),orderBy('ts','desc'),limit(500)),s=>{rows=s.docs.map(d=>d.data());list()});
+}
+document.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{const v=el.type==='checkbox'?el.checked:el.type==='number'?+el.value:el.value.trim();setDoc(refs.cfg,{[el.dataset.k]:v},{merge:true})});
+function fill(){document.querySelectorAll('[data-k]').forEach(el=>{if(document.activeElement===el)return;const v=cfg[el.dataset.k];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''})}
+const FASE={wait:'esperando a alguien',locked:'alguien está completando',ready:'foto lista',show:'mostrando foto',cancel:'cancelada'};
+function view(){
+  $('#stat').textContent='Pantalla: '+(cfg.enabled?(st?FASE[st.phase]||st.phase:'sin iniciar (abrí tv.html)'):'APAGADA')+(code?' · Código: '+code:'');
+  $('#appr').hidden=!(cfg.manual&&st&&st.phase==='ready');
+  if(!$('#appr').hidden&&st.img)$('#ai').src=st.img;
+}
+$('#ok').onclick=()=>updateDoc(refs.state,{phase:'show'});
+$('#no').onclick=()=>updateDoc(refs.state,{phase:'cancel'});
+$('#rst').onclick=()=>updateDoc(refs.state,{phase:'cancel'});
+function list(){
+  $('#n').textContent=rows.length;$('#rs').replaceChildren(...rows.slice(0,50).map(r=>{const li=document.createElement('li');li.textContent=(r.stars?'★'.repeat(r.stars):'sin estrellas')+(r.text?' · '+r.text:'');return li}));
+}
+$('#csv').onclick=()=>{
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const t=['fecha,estrellas,texto',...rows.map(r=>[q(r.ts&&r.ts.toDate?r.ts.toDate().toISOString():''),r.stars||'',q(r.text)].join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download='respuestas.csv';a.click();
+};
+</script></body></html>

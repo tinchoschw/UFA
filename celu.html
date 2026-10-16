@@ -1,0 +1,93 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Tu foto Halloween</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="estilo.css">
+<style>
+main{max-width:440px;margin:0 auto;padding:18px}
+.st{display:none;flex-direction:column;gap:12px}.st.on{display:flex}
+#in{font:28px "Bowlby One",Impact,sans-serif;letter-spacing:.2em;text-align:center}
+#prev{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:none}#prev[src]{display:block}
+.stars{display:flex;gap:4px;justify-content:center}.stars button{background:transparent;color:#5a4778;font-size:30px;padding:2px 6px;line-height:1}.stars button.on{color:var(--pk)}
+.ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--mut)}.q{font-size:14px}
+textarea{min-height:80px;resize:vertical}
+</style></head><body><main>
+<h1>Tu foto, versión Halloween</h1>
+<div class="st on" id="st-code"><div class="q">Escribí el código de 6 números que ves en la pantalla.</div>
+<input type="text" id="in" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Código de 6 números"><div class="err" id="err" role="alert"></div><button id="go">Entrar</button></div>
+<div class="st" id="st-form"><img id="prev" alt="Vista previa"><div class="err" id="ferr" role="alert"></div>
+<input type="file" id="file" accept="image/*" capture="user" aria-label="Foto">
+<div class="q">¿Qué te parecen las pantallas del boliche?</div><div class="stars" id="stars"></div>
+<div class="q">¿Qué sugerencias nos harías? (opcional)</div><textarea id="sug" maxlength="500" placeholder="Escribí lo que quieras"></textarea>
+<label class="ck"><input type="checkbox" id="age"> Soy mayor de 18 años.</label>
+<label class="ck"><input type="checkbox" id="tc"> Acepto que mi foto se transforme y se muestre en la pantalla del boliche. La foto original no sale de mi celular y no se guarda. Mis respuestas se guardan sin nombre ni foto.</label>
+<button id="send" disabled>Enviar foto</button></div>
+<div class="st" id="st-done"><h2 id="done-h" style="margin:0"></h2><div class="q" id="done-t"></div><button id="retry" class="ghost" hidden>Probar de nuevo</button></div>
+<div class="st" id="st-off"><div class="q">Esta actividad no está activa en este momento. ¡Volvé a probar más tarde!</div></div>
+</main>
+<script src="filtro.js"></script>
+<script type="module">
+import {auth,db,refs,watchCfg,DEF,onAuthStateChanged,signInAnonymously,onSnapshot,updateDoc,runTransaction,doc,getDoc,setDoc,addDoc,collection,serverTimestamp} from './fb.js';
+const $=s=>document.querySelector(s);
+let cfg={...DEF},uid=null,st=null,mine=false,sent=false,photoURL=null,faceOK=false,rating=0,cur='code';
+const step=n=>{cur=n;document.querySelectorAll('.st').forEach(e=>e.classList.toggle('on',e.id==='st-'+n))};
+const err=m=>{$('#err').textContent=m||''};
+const chk=()=>{$('#send').disabled=!(photoURL&&faceOK&&$('#age').checked&&$('#tc').checked&&!sent)};
+function dropPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;faceOK=false;$('#prev').removeAttribute('src');$('#file').value='';$('#ferr').textContent='';rating=0;[...$('#stars').children].forEach(x=>x.classList.remove('on'));$('#age').checked=$('#tc').checked=false;$('#sug').value='';chk()}
+function done(h,t,retry){$('#done-h').textContent=h;$('#done-t').textContent=t;$('#retry').hidden=!retry;step('done')}
+function reset(m){mine=false;sent=false;dropPhoto();step('code');$('#in').value='';err(m)}
+for(let i=1;i<=5;i++){const b=document.createElement('button');b.textContent='★';b.setAttribute('aria-label',i+' estrellas');b.onclick=()=>{rating=i;[...$('#stars').children].forEach((x,j)=>x.classList.toggle('on',j<i))};$('#stars').append(b)}
+onAuthStateChanged(auth,u=>{if(u)uid=u.uid;else signInAnonymously(auth)});
+loadLM();
+watchCfg(c=>{cfg=c;if(!c.enabled)step('off');else if(cur==='off')step('code')});
+onSnapshot(refs.state,s=>{st=s.exists()?s.data():null;sync()});
+function sync(){
+  if(!mine||!st)return;
+  const ok=st.lockedBy===uid&&['locked','ready','show'].includes(st.phase);
+  if(ok&&st.phase==='show'&&sent)done('¡Listo!','Mirá la pantalla, ya estás en Halloween.',false);
+  if(!ok){const was=sent;mine=false;sent=false;if(was)done('¡Gracias!','Tu foto ya salió de la pantalla.',true);else reset('Se acabó el tiempo. Escribí el nuevo código.')}
+}
+$('#go').onclick=async()=>{
+  const v=$('#in').value.trim();err('');
+  if(!cfg.enabled)return err('La actividad no está activa ahora.');
+  if(!uid)return err('Conectando… probá de nuevo en un segundo.');
+  try{
+    await runTransaction(db,async t=>{
+      const [s,u]=await Promise.all([t.get(refs.state),t.get(doc(db,'u',uid))]);
+      const d=s.data()||{},ud=u.exists()?u.data():{n:0,last:0};
+      if(ud.n>=cfg.maxAttempts)throw 'Llegaste al máximo de intentos de esta noche.';
+      const w=Math.ceil((ud.last+cfg.cooldownSecs*1000-Date.now())/1000);
+      if(w>0)throw 'Esperá '+w+' s para probar de nuevo.';
+      if(d.phase!=='wait')throw 'La pantalla está ocupada. Esperá el próximo código.';
+      t.update(refs.state,{phase:'locked',lockedBy:uid,codeTry:v});
+    });
+    mine=true;sent=false;step('form');
+  }catch(e){console.warn(e);err(typeof e==='string'?e:e&&e.code==='permission-denied'?'Código incorrecto. Revisá la pantalla.':'No pudimos conectar. Probá de nuevo.')}
+};
+$('#in').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+$('#retry').onclick=()=>reset('');
+$('#file').onchange=e=>{
+  const f=e.target.files[0];if(photoURL)URL.revokeObjectURL(photoURL);
+  photoURL=f?URL.createObjectURL(f):null;faceOK=false;$('#ferr').textContent='';
+  if(photoURL){$('#prev').src=photoURL;checkFace(photoURL)}else $('#prev').removeAttribute('src');chk();
+};
+async function checkFace(url){
+  $('#ferr').textContent='Buscando tu cara…';
+  const lm=await loadLM();
+  if(!lm){faceOK=true;$('#ferr').textContent='';chk();return}
+  try{const im=new Image();im.src=url;await im.decode();const n=lm.detect(im).faceLandmarks.length;if(url!==photoURL)return;faceOK=n>0;$('#ferr').textContent=n?'':'No te vemos la cara. Probá de frente y con más luz.'}catch(e){faceOK=true;$('#ferr').textContent=''}
+  chk();
+}
+$('#age').onchange=$('#tc').onchange=chk;
+$('#send').onclick=async()=>{
+  const stars=rating,text=$('#sug').value.trim(),url=photoURL;
+  sent=true;done('Procesando','Halloweeneando tu foto…',false);
+  try{
+    try{await document.fonts.load('46px "Bowlby One"')}catch(e){}
+    const img=new Image();img.src=url;await img.decode();
+    const out=await halloween(img),data=out.toDataURL('image/jpeg',.82);
+    dropPhoto();   // la foto original nunca sale del celular
+    await updateDoc(refs.state,{phase:'ready',img:data});
+    const uref=doc(db,'u',uid),us=await getDoc(uref);
+    setDoc(uref,{n:(us.exists()?us.data().n:0)+1,last:Date.now()}).catch(()=>{});
+    addDoc(collection(db,'responses'),{stars,text,ts:serverTimestamp()}).catch(()=>{});
+  }catch(e){console.warn(e);updateDoc(refs.state,{phase:'cancel'}).catch(()=>{});reset('Algo falló. Probá de nuevo.')}
+};
+</script></body></html>

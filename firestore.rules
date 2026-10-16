@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function admin() { return request.auth != null && request.auth.token.email == 'TU_EMAIL@ejemplo.com'; }
+    match /cfg/{d} { allow read: if request.auth != null; allow write: if admin(); }
+    match /screen/secret { allow read, write: if admin(); }
+    match /screen/state {
+      allow read: if request.auth != null;
+      allow write: if admin();
+      allow update: if request.auth != null && (
+        (resource.data.phase == 'wait' && request.resource.data.phase == 'locked'
+          && request.resource.data.lockedBy == request.auth.uid
+          && request.resource.data.codeTry == get(/databases/$(database)/documents/screen/secret).data.code)
+        || (resource.data.phase == 'locked' && resource.data.lockedBy == request.auth.uid
+          && request.resource.data.phase in ['ready', 'cancel']
+          && (request.resource.data.img == null || request.resource.data.img.size() < 900000)));
+    }
+    match /responses/{r} {
+      allow create: if request.auth != null && request.resource.data.keys().hasOnly(['stars', 'text', 'ts'])
+        && request.resource.data.text.size() <= 500;
+      allow read: if admin();
+    }
+    match /u/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }
+  }
+}
