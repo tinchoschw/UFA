@@ -8,12 +8,16 @@ main{max-width:440px;margin:0 auto;padding:18px}
 .stars{display:flex;gap:4px;justify-content:center}.stars button{background:transparent;color:#5a4778;font-size:30px;padding:2px 6px;line-height:1}.stars button.on{color:var(--pk)}
 .ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--mut)}.q{font-size:14px}
 textarea{min-height:80px;resize:vertical}
+.sr{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+#pick{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border:2px dashed var(--pk);border-radius:16px;background:var(--panel);color:var(--ink);font-weight:600;cursor:pointer}
+#pick svg{width:96px;height:auto}
+#file:focus-visible+#pick{outline:2px solid var(--ink);outline-offset:2px}
 </style></head><body><main>
 <h1>Tu foto, versión Halloween</h1>
 <div class="st on" id="st-code"><div class="q">Escribí el código de 6 números que ves en la pantalla.</div>
 <input type="text" id="in" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Código de 6 números"><div class="err" id="err" role="alert"></div><button id="go">Entrar</button></div>
 <div class="st" id="st-form"><img id="prev" alt="Vista previa"><div class="err" id="ferr" role="alert"></div>
-<input type="file" id="file" accept="image/*" capture="user" aria-label="Foto">
+<input type="file" id="file" class="sr" accept="image/*" capture="user"><label for="file" id="pick"><svg viewBox="0 0 120 100" aria-hidden="true"><rect x="38" y="12" width="44" height="18" rx="6" fill="#1d1030" stroke="#ff7a1a" stroke-width="4"/><rect x="8" y="24" width="104" height="68" rx="14" fill="#1d1030" stroke="#ff7a1a" stroke-width="4"/><circle cx="60" cy="58" r="27" fill="#12081f" stroke="#ff7a1a" stroke-width="4"/><circle cx="60" cy="53" r="15" fill="#f3ead7"/><rect x="52" y="60" width="16" height="11" rx="3" fill="#f3ead7"/><circle cx="54" cy="53" r="3.6" fill="#12081f"/><circle cx="66" cy="53" r="3.6" fill="#12081f"/><path d="M60 57l-2.4 4.4h4.8z" fill="#12081f"/><path d="M56 66v5M60 66v5M64 66v5" stroke="#12081f" stroke-width="1.3"/><circle cx="98" cy="36" r="4.5" fill="#ff7a1a"/></svg><span id="pickt">Tocá para sacarte la foto</span></label>
 <div class="q">¿Qué te parecen las pantallas del boliche?</div><div class="stars" id="stars"></div>
 <div class="q">¿Qué sugerencias nos harías? (opcional)</div><textarea id="sug" maxlength="500" placeholder="Escribí lo que quieras"></textarea>
 <label class="ck"><input type="checkbox" id="age"> Soy mayor de 18 años.</label>
@@ -30,7 +34,7 @@ let cfg={...DEF},uid=null,st=null,mine=false,sent=false,photoURL=null,faceOK=fal
 const step=n=>{cur=n;document.querySelectorAll('.st').forEach(e=>e.classList.toggle('on',e.id==='st-'+n))};
 const err=m=>{$('#err').textContent=m||''};
 const chk=()=>{$('#send').disabled=!(photoURL&&faceOK&&$('#age').checked&&$('#tc').checked&&!sent)};
-function dropPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;faceOK=false;$('#prev').removeAttribute('src');$('#file').value='';$('#ferr').textContent='';rating=0;[...$('#stars').children].forEach(x=>x.classList.remove('on'));$('#age').checked=$('#tc').checked=false;$('#sug').value='';chk()}
+function dropPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;faceOK=false;$('#prev').removeAttribute('src');$('#file').value='';$('#ferr').textContent='';$('#pickt').textContent='Tocá para sacarte la foto';rating=0;[...$('#stars').children].forEach(x=>x.classList.remove('on'));$('#age').checked=$('#tc').checked=false;$('#sug').value='';chk()}
 function done(h,t,retry){$('#done-h').textContent=h;$('#done-t').textContent=t;$('#retry').hidden=!retry;step('done')}
 function reset(m){mine=false;sent=false;dropPhoto();step('code');$('#in').value='';err(m)}
 for(let i=1;i<=5;i++){const b=document.createElement('button');b.textContent='★';b.setAttribute('aria-label',i+' estrellas');b.onclick=()=>{rating=i;[...$('#stars').children].forEach((x,j)=>x.classList.toggle('on',j<i))};$('#stars').append(b)}
@@ -66,7 +70,7 @@ $('#retry').onclick=()=>reset('');
 $('#file').onchange=e=>{
   const f=e.target.files[0];if(photoURL)URL.revokeObjectURL(photoURL);
   photoURL=f?URL.createObjectURL(f):null;faceOK=false;$('#ferr').textContent='';
-  if(photoURL){$('#prev').src=photoURL;checkFace(photoURL)}else $('#prev').removeAttribute('src');chk();
+  if(photoURL){$('#prev').src=photoURL;checkFace(photoURL)}else $('#prev').removeAttribute('src');$('#pickt').textContent=photoURL?'Sacar otra foto':'Tocá para sacarte la foto';chk();
 };
 async function checkFace(url){
   $('#ferr').textContent='Buscando tu cara…';
