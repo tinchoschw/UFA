@@ -7,7 +7,7 @@ label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:13px
 label.sw{flex-direction:row;align-items:center;gap:10px;color:var(--ink);font-size:15px}
 small{color:var(--mut)}
 #th{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}#th:empty::before{content:"Sin fotos en cola";color:var(--mut)}
-#th div{display:flex;flex-direction:column;gap:4px;width:96px}#th img{width:96px;border-radius:8px}#th button{padding:6px}
+#th div{display:flex;flex-direction:column;gap:4px;width:96px;position:relative}#th span{position:absolute;top:-8px;right:-8px;font-size:22px}#th img{width:96px;border-radius:8px}#th button{padding:6px}
 table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td{padding:5px;border-bottom:1px solid var(--line)}tr:last-child td{font-weight:700}
 </style></head><body><main>
 <div id="login" class="card"><h1>Panel</h1><div class="grid"><input type="email" id="em" placeholder="Email" autocomplete="username"><input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password"></div><div class="err" id="le"></div><button id="li">Entrar</button></div>
@@ -16,22 +16,24 @@ table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td
 <div class="card" id="pair" hidden><b>Una TV pide vincularse</b><br><br><button id="pbtn">Vincular esta TV</button></div>
 <div class="card"><div class="grid">
 <label class="sw"><input type="checkbox" data-k="enabled"> Encendido <small>(apagado total: la TV queda solo con tus visuales)</small></label>
-<label class="sw"><input type="checkbox" data-k="photosPaused"> Pausar fotos <small>(descarta las que estén en cola)</small></label>
+<label class="sw"><input type="checkbox" data-k="photosPaused"> Pausar fotos <small>(quita las que flotan y descarta las que esperan)</small></label>
 </div></div>
-<div class="card"><b>Fotos en cola</b> <small>(la primera suele ser la que está saliendo)</small><div id="th"></div></div>
+<div class="card"><b>Fotos en pantalla y en espera</b> <small>(“Sacar” la quita al instante)</small><div id="th"></div></div>
 <div class="card"><b>Esta noche</b><table id="tb"></table></div>
 <div class="card"><div class="grid">
-<label>Reacciones por minuto por persona<input type="number" data-k="rxPerMin" min="1"></label>
+<label>Espera entre reacciones (s)<input type="number" data-k="cooldownSecs" min="0"></label>
+<label>Reacciones por persona por noche<input type="number" data-k="sendsNight" min="1"></label>
 <label>Fotos por persona por noche<input type="number" data-k="photosNight" min="0"></label>
-<label>Segundos de cada foto<input type="number" data-k="photoSecs" min="2"></label>
+<label>Segundos que flota cada foto<input type="number" data-k="photoSecs" min="3"></label>
 <label>Tope de emojis en pantalla<input type="number" data-k="maxEmojis" min="5"></label>
-<label>Tope de fotos en cola<input type="number" data-k="maxQueue" min="1"></label>
+<label>Fotos flotando a la vez<input type="number" data-k="maxPhotos" min="1"></label>
+<label>Fotos en espera (tope)<input type="number" data-k="maxQueue" min="0"></label>
 <label>Texto bajo el QR<input type="text" data-k="titulo" maxlength="60"></label>
-<label>URL de tus visuales de fondo<input type="text" data-k="bg" placeholder="https://..."></label>
+<label style="grid-column:1/-1">Fondo: un video por línea (archivo de esta carpeta, URL o link de Drive) — o una sola línea con la página de tus visuales<textarea data-k="bg" rows="4" placeholder="videos/uno.mp4"></textarea></label>
 </div></div>
 </div></main>
 <script type="module">
-import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInWithEmailAndPassword,onSnapshot,setDoc,deleteDoc,doc,collection,query,orderBy,serverTimestamp} from './fb.js';
+import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInWithEmailAndPassword,onSnapshot,setDoc,deleteDoc,doc,collection,query,where,serverTimestamp} from './fb.js';
 const $=s=>document.querySelector(s),E=Object.fromEntries(R);
 let cfg={...DEF},started=false,tvId=(location.hash.match(/tv=(\w+)/)||[])[1];
 $('#li').onclick=()=>signInWithEmailAndPassword(auth,$('#em').value.trim(),$('#pw').value).catch(()=>{$('#le').textContent='Email o contraseña incorrectos.'});
@@ -47,9 +49,9 @@ function stats(d){
 }
 function go(){
   watchCfg(c=>{cfg=c;fill()});
-  onSnapshot(query(collection(db,'ph'),orderBy('ts')),s=>$('#th').replaceChildren(...s.docs.map(d=>{
-    const w=document.createElement('div'),i=new Image(),b=document.createElement('button');
-    i.src=d.data().img;i.alt='Foto en cola';b.textContent='Sacar';b.onclick=()=>deleteDoc(d.ref);w.append(i,b);return w})));
+  onSnapshot(query(collection(db,'rx'),where('ph','==',true)),s=>$('#th').replaceChildren(...s.docs.sort((a,b)=>(a.data().ts?.toMillis?.()||0)-(b.data().ts?.toMillis?.()||0)).map(d=>{
+    const x=d.data(),w=document.createElement('div'),i=new Image(),e=document.createElement('span'),b=document.createElement('button');
+    i.src=x.img;i.alt='Foto';e.textContent=E[x.r]||'';b.textContent='Sacar';b.onclick=()=>deleteDoc(d.ref);w.append(i,e,b);return w})));
   onSnapshot(doc(db,'stats',night()),s=>stats(s.exists()?s.data():{}));
 }
 </script></body></html>

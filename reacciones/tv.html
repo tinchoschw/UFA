@@ -2,35 +2,31 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="estilo.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
-html,body{height:100%;overflow:hidden;background:#000;cursor:none}
-#bg{position:fixed;inset:0;width:100%;height:100%;border:0;background:#000;pointer-events:none}
+html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 40%,#10121e,#000);cursor:none}
+#bg,#vid{position:fixed;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+#vid{object-fit:cover;background:#000}
 .fl{position:fixed;bottom:-12vh;pointer-events:none;z-index:3;animation:up var(--d) ease-in-out forwards}
 @keyframes up{50%{transform:translate(var(--x),-60vh)}to{transform:translate(0,-125vh);opacity:.3}}
-#qr{position:fixed;right:1.5vw;bottom:2vh;width:15vw;z-index:5;background:#fff;padding:.7vw;border-radius:1vw;text-align:center;color:#111}
+.fp{width:10vw}.fp img{width:100%;display:block;border-radius:.8vw;border:.25vw solid var(--pk);box-shadow:0 0 2vw var(--pk2)}
+.fp span{position:absolute;top:-2vw;right:-1.6vw;font-size:4.2vw;line-height:1;filter:drop-shadow(0 0 .6vw #000)}
+#qr{position:fixed;right:1.5vw;bottom:2vh;width:15vw;z-index:5;background:#fff;padding:.7vw;border-radius:1vw;border:.3vw solid var(--pk);text-align:center;color:#111}
 #qr svg{width:100%;height:100%;display:block}#qrs{aspect-ratio:1}
 #cap{font:700 1.2vw/1.2 system-ui,sans-serif;margin-top:.5vw}
-#ph{position:fixed;left:1.5vw;bottom:2vh;width:15vw;z-index:5;display:none;text-align:center;background:#12081fe6;padding:.6vw;border-radius:1vw;border:.25vw solid var(--pk)}
-#ph.on{display:block;animation:pop .35s}@keyframes pop{from{transform:scale(.6);opacity:0}}
-#ph img{width:100%;display:block;border-radius:.6vw}
-#ph b{display:block;margin-top:.5vw;font:1.5vw/1.15 "Bowlby One",Impact,sans-serif;color:#fff}
-body.off .fl,body.off #qr,body.off #ph{display:none}
+body.off .fl,body.off #qr{display:none}
 #s-pair{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:2vh;align-items:center;justify-content:center;text-align:center;padding:4vw}#s-pair h1{font-size:4vw}#s-pair p{font-size:2vw;color:var(--mut);max-width:60vw;margin:0}
 #pq{width:24vw;background:#fff;padding:1vw;border-radius:1vw}#pq svg{width:100%;height:auto;display:block}
-@media(prefers-reduced-motion:reduce){#ph.on{animation:none}}
 </style></head><body>
-<iframe id="bg" title="Visuales"></iframe>
+<iframe id="bg" title="Visuales"></iframe><video id="vid" muted autoplay playsinline hidden></video>
 <div id="qr"><div id="qrs"></div><div id="cap"></div></div>
-<div id="ph"><img id="pic" alt="Foto"><b>¡Gracias por sumarte!</b></div>
 <div id="s-pair"><h1>Vincular esta TV</h1><div id="pq"></div><p>Escaneá este QR con tu celu (con el panel de admin abierto y logueado) y tocá “Vincular esta TV”.</p></div>
 <script type="module">
-import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,onSnapshot,query,collection,where,orderBy,Timestamp,deleteDoc,doc,setDoc,increment} from './fb.js';
+import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,onSnapshot,query,collection,where,Timestamp,deleteDoc,doc,setDoc,increment} from './fb.js';
 const $=s=>document.querySelector(s),E=Object.fromEntries(R);
-let cfg={...DEF},S={all:{},h:{}},rate=new Map(),queue=[],cur=null,curT,tkc='',started=false;
+let cfg={...DEF},S={all:{},h:{}},waitQ=[],fl=new Map(),tkc='',started=false,uid=null,bgT=null,vids=[],vi=-1;
 let PC=JSON.parse(localStorage.pc||'{}');if(PC.n!==night())PC={n:night(),c:{}};
 const pcSave=()=>localStorage.pc=JSON.stringify(PC);
-const del=id=>deleteDoc(doc(db,'ph',id)).catch(()=>{});
+const del=id=>deleteDoc(doc(db,'rx',id)).catch(()=>{});
 // vinculación por QR: la TV entra como anónima y el admin (desde el celu) autoriza su uid
-let uid=null;
 onAuthStateChanged(auth,u=>{
   if(!u){signInAnonymously(auth);return}
   if(uid)return;uid=u.uid;
@@ -51,45 +47,60 @@ async function rot(){
   tkc=n;
   try{const q=qrcode(0,'L');q.addData(new URL('celu.html',location.href).href+'#t='+n);q.make();$('#qrs').innerHTML=q.createSvgTag({cellSize:4,margin:0})}catch(e){}
 }
+// ---- fondo: una página (iframe) o una lista de videos (uno por línea; rutas relativas a esta carpeta, URLs o links de Drive)
+const vidRe=/\.(mp4|webm|mov|m4v)(\?|#|$)/i,drv=/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?[^ ]*?id=)([\w-]+)/i;
+function setBg(t){
+  if(t===bgT)return;bgT=t;
+  const L=t.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{try{const m=x.match(drv);return m?'https://drive.google.com/uc?export=download&id='+m[1]:new URL(x,location.href).href}catch(e){return ''}}).filter(Boolean);
+  const f=$('#bg'),v=$('#vid'),page=L.length===1&&!vidRe.test(L[0])&&!/uc\?export=download/.test(L[0]);
+  vids=page?[]:L;vi=-1;
+  if(page){f.src=L[0];v.pause();v.removeAttribute('src');v.hidden=true}
+  else{f.removeAttribute('src');v.hidden=!vids.length;if(vids.length)nextVid();else{v.pause();v.removeAttribute('src')}}
+}
+function nextVid(){
+  if(!vids.length)return;vi=(vi+1)%vids.length;const v=$('#vid');
+  if(v.getAttribute('src')!==vids[vi])v.src=vids[vi];else v.currentTime=0;
+  const p=v.play();if(p&&p.catch)p.catch(()=>setTimeout(nextVid,3000));
+}
+$('#vid').onended=nextVid;$('#vid').onerror=()=>setTimeout(nextVid,2000);
+// ---- flotantes
+const rnd=(a,b)=>a+Math.random()*(b-a);
 function spawn(e){
-  if(document.querySelectorAll('.fl').length>=cfg.maxEmojis)return;
+  if(document.querySelectorAll('.fl:not(.fp)').length>=cfg.maxEmojis)return;
   const s=document.createElement('span');s.className='fl';s.textContent=e;
-  s.style.cssText='left:'+(4+Math.random()*88)+'vw;font-size:'+(4+Math.random()*3)+'vw;--d:'+(4.5+Math.random()*2.5)+'s;--x:'+(Math.random()*12-6)+'vw';
+  s.style.cssText='left:'+rnd(4,92)+'vw;font-size:'+rnd(4,7)+'vw;--d:'+rnd(4.5,7)+'s;--x:'+rnd(-6,6)+'vw';
   s.onanimationend=()=>s.remove();document.body.append(s);
 }
-function hidePhoto(){clearTimeout(curT);cur=null;$('#ph').classList.remove('on');setTimeout(next,600)}
-function next(){
-  if(cur||!queue.length||!cfg.enabled||cfg.photosPaused)return;
-  cur=queue.shift();$('#pic').src=cur.img;$('#ph').classList.add('on');count('foto');
-  const id=cur.id;curT=setTimeout(()=>{hidePhoto();del(id)},cfg.photoSecs*1000);
+function floatPhoto(p){
+  const w=document.createElement('div'),i=new Image(),b=document.createElement('span');
+  w.className='fl fp';i.src=p.img;i.alt='';b.textContent=E[p.r];w.append(i,b);
+  w.style.cssText='left:'+rnd(4,84)+'vw;--d:'+cfg.photoSecs+'s;--x:'+rnd(-5,5)+'vw';
+  w.onanimationend=()=>{w.remove();fl.delete(p.id);del(p.id);pump()};
+  fl.set(p.id,w);document.body.append(w);count('foto');
 }
+function pump(){while(waitQ.length&&fl.size<cfg.maxPhotos)floatPhoto(waitQ.shift())}
+function drop(id){waitQ=waitQ.filter(p=>p.id!==id);const w=fl.get(id);if(w){w.remove();fl.delete(id);pump()}}
 function go(){
   watchCfg(c=>{
-    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);
-    $('#cap').textContent=c.titulo;
-    const f=$('#bg');if(f.dataset.u!==c.bg){f.dataset.u=c.bg;if(c.bg)f.src=c.bg;else f.removeAttribute('src')}
-    if(!c.enabled||c.photosPaused){queue.forEach(p=>del(p.id));queue=[];if(cur){const id=cur.id;hidePhoto();del(id)}}
+    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');
+    if(!c.enabled||c.photosPaused){waitQ.forEach(p=>del(p.id));waitQ=[];fl.forEach((w,id)=>{w.remove();del(id)});fl.clear()}
     if(c.enabled&&!was)rot();
   });
   rot();setInterval(()=>cfg.enabled&&rot(),60000);setInterval(flush,10000);
-  // reacciones: solo las nuevas (con 30 s de margen por si el reloj de la TV se adelanta)
+  // cada envío es un documento: reacción y, si hay, foto. Sale en cuanto llega, en paralelo con los demás.
   onSnapshot(query(collection(db,'rx'),where('ts','>=',Timestamp.fromMillis(Date.now()-30000))),s=>s.docChanges().forEach(ch=>{
-    if(ch.type!=='added'||!cfg.enabled)return;
-    const d=ch.doc.data(),now=Date.now();let a=(rate.get(d.uid)||[]).filter(t=>now-t<6e4);
-    for(const k in d.c||{}){
-      if(!E[k])continue;const n=Math.min(+d.c[k]||0,15);
-      for(let i=0;i<n&&a.length<cfg.rxPerMin;i++){a.push(now);count(k);setTimeout(()=>spawn(E[k]),Math.random()*2000)}
-    }
-    rate.set(d.uid,a);
-  }));
-  // fotos: cola de a una; se borran al salir (o si se descartan)
-  onSnapshot(query(collection(db,'ph'),orderBy('ts')),s=>s.docChanges().forEach(ch=>{
     const id=ch.doc.id;
-    if(ch.type==='removed'){queue=queue.filter(p=>p.id!==id);if(cur&&cur.id===id)hidePhoto();return}
+    if(ch.type==='removed'){drop(id);return}
     if(ch.type!=='added')return;
-    const d=ch.doc.data(),age=Date.now()-(d.ts?d.ts.toMillis():Date.now()),n=PC.c[d.uid]||0;
-    if(!cfg.enabled||cfg.photosPaused||age>6e5||n>=cfg.photosNight||queue.length>=cfg.maxQueue){del(id);return}
-    PC.c[d.uid]=n+1;pcSave();queue.push({id,img:d.img});next();
+    const d=ch.doc.data(),now=Date.now(),c=PC.c[d.uid]||{t:0,n:0,p:0};
+    let img=d.img;
+    if(img&&(cfg.photosPaused||c.p>=cfg.photosNight)){img=null;del(id)}
+    if(!cfg.enabled||!E[d.r]||c.n>=cfg.sendsNight||now-c.t<cfg.cooldownSecs*800){if(img)del(id);return}
+    c.t=now;c.n++;if(img)c.p++;PC.c[d.uid]=c;pcSave();count(d.r);
+    if(!img)spawn(E[d.r]);
+    else if(fl.size<cfg.maxPhotos)floatPhoto({id,img,r:d.r});
+    else if(waitQ.length<cfg.maxQueue)waitQ.push({id,img,r:d.r});
+    else{del(id);spawn(E[d.r])}
   }));
 }
 </script></body></html>

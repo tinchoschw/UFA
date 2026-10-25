@@ -1,11 +1,11 @@
-:root{color-scheme:dark;--bg:#12081f;--panel:#1d1030;--ink:#f3ead7;--mut:#a99bc2;--pk:#ff7a1a;--line:#3a2658}
+:root{color-scheme:dark;--bg:#07080f;--panel:#10121e;--ink:#eef2ff;--mut:#8d94b8;--pk:#00e5ff;--pk2:#ff2bd6;--line:#262a45}
 *{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
-button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 16px;background:var(--pk);color:#1a0a00;cursor:pointer}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 16px;background:var(--pk);color:#001418;cursor:pointer}
 button:disabled{opacity:.4;cursor:not-allowed}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 input[type=text],input[type=email],input[type=password],input[type=number],textarea{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.err{color:#ff8f8f;min-height:1.3em;font-size:14px}
+.err{color:#ff8f9f;min-height:1.3em;font-size:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
-h1{font:22px/1.2 "Bowlby One",Impact,sans-serif;color:var(--pk);margin:6px 0 14px}
+h1{font:22px/1.2 "Bowlby One",Impact,sans-serif;color:var(--pk);text-shadow:0 0 .7em #ff2bd666;margin:6px 0 14px}

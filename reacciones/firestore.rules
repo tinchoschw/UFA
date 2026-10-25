@@ -23,19 +23,16 @@ service cloud.firestore {
           get(/databases/$(database)/documents/screen/token).data.cur,
           get(/databases/$(database)/documents/screen/token).data.prev];
     }
+    // cada envío: una reacción y, opcionalmente, una foto chica (img + ph:true)
     match /rx/{id} {
-      allow create: if sesOk() && request.resource.data.keys().hasOnly(['uid', 'ts', 'c'])
+      allow create: if sesOk() && request.resource.data.keys().hasAll(['uid', 'ts', 'r'])
+        && request.resource.data.keys().hasOnly(['uid', 'ts', 'r', 'img', 'ph'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.ts == request.time
-        && request.resource.data.c.size() > 0
-        && request.resource.data.c.keys().hasOnly(['fuego', 'amor', 'birra', 'baile', 'fiesta', 'diablo']);
-      allow read, delete: if admin() || tv();
-    }
-    match /ph/{id} {
-      allow create: if sesOk() && request.resource.data.keys().hasOnly(['uid', 'ts', 'img'])
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.ts == request.time
-        && request.resource.data.img is string && request.resource.data.img.size() < 150000;
+        && request.resource.data.r in ['fuego', 'amor', 'birra', 'baile', 'fiesta', 'diablo']
+        && ('img' in request.resource.data) == ('ph' in request.resource.data)
+        && (!('img' in request.resource.data)
+          || (request.resource.data.ph == true && request.resource.data.img is string && request.resource.data.img.size() < 150000));
       allow read, delete: if admin() || tv();
     }
   }

@@ -2,39 +2,57 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="estilo.css">
 <style>
 main{max-width:440px;margin:0 auto;padding:18px}
-.g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
-.g button{font-size:54px;line-height:1;padding:20px 0;background:var(--panel);border:2px solid var(--line);border-radius:18px;transition:transform .08s}
-.g button:active{transform:scale(.88);border-color:var(--pk)}
+#f{display:flex;flex-direction:column;gap:12px}.q{font-size:14px}.q small{color:var(--mut)}
+.g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.g button{font-size:46px;line-height:1;padding:16px 0;background:var(--panel);border:2px solid var(--line);border-radius:16px}
+.g button[aria-pressed=true]{border-color:var(--pk);box-shadow:0 0 0 2px var(--pk2),0 0 18px #ff2bd677}
+#prev{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:none}#prev[src]{display:block}
 .sr{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
-#pick{display:block;text-align:center;padding:16px;border:2px dashed var(--pk);border-radius:16px;background:var(--panel);font-weight:600;cursor:pointer}
+#pick{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border:2px dashed var(--pk);border-radius:16px;background:var(--panel);color:var(--ink);font-weight:600;cursor:pointer}
+#pick svg{width:96px;height:auto;color:var(--pk)}
+#pick .a{fill:var(--panel);stroke:currentColor;stroke-width:4}#pick .b{fill:var(--bg);stroke:currentColor;stroke-width:4}#pick .o{fill:currentColor}#pick .m{fill:var(--pk2)}
 #file:focus-visible+#pick{outline:2px solid var(--ink);outline-offset:2px}
+#pickw{display:flex;flex-direction:column;gap:10px}
 .ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--mut)}
-#msg{min-height:1.4em;text-align:center;margin-top:12px}
+#done{text-align:center;padding:24px 0}#done h2{margin:0 0 10px}
 </style></head><body><main>
 <h1>¡Reaccioná en vivo!</h1>
-<div class="card ck" id="ok"><label class="ck"><input type="checkbox" id="ck"> Soy mayor de 18 años y acepto que, si mando una foto, se muestre unos segundos en la pantalla del boliche. La foto se borra al salir y no se pide nombre.</label></div>
 <div id="sc" hidden>Escaneá el QR de la pantalla para reaccionar 📷</div>
 <div id="off" hidden>Esto no está activo ahora. ¡Volvé a probar más tarde!</div>
 <div id="app" hidden>
-<div class="g" id="g"></div>
-<div id="pickw"><input type="file" id="file" class="sr" accept="image/*" capture="user"><label for="file" id="pick">📸 Sumá tu foto (opcional)</label></div>
-<div id="msg" role="status"></div>
+<div id="f">
+<div class="q">1. Elegí tu reacción</div><div class="g" id="g"></div>
+<div id="pickw"><div class="q">2. Sumá tu foto <small>(opcional)</small></div>
+<img id="prev" alt="Vista previa"><div class="err" id="ferr" role="alert"></div>
+<input type="file" id="file" class="sr" accept="image/*" capture="user"><label for="file" id="pick"><svg viewBox="0 0 120 100" aria-hidden="true"><rect class="a" x="38" y="12" width="44" height="18" rx="6"/><rect class="a" x="8" y="24" width="104" height="68" rx="14"/><circle class="b" cx="60" cy="58" r="27"/><circle class="m" cx="60" cy="58" r="13"/><circle class="o" cx="98" cy="36" r="4.5"/></svg><span id="pickt">Tocá para sacarte la foto</span></label>
+<button class="ghost" id="rm" hidden>Quitar foto</button></div>
+<label class="ck"><input type="checkbox" id="ck"> Soy mayor de 18 años y acepto que mi reacción —y mi foto, si la mando— se muestre unos segundos en la pantalla del boliche. La foto se borra apenas sale de la pantalla. No te pedimos nombre.</label>
+<div class="err" id="err" role="alert"></div>
+<button id="send" disabled>¡Reaccionar!</button>
+</div>
+<div id="done" hidden><h2>¡Gracias por tu reacción! 🙌</h2><div id="dt"></div></div>
 </div>
 </main>
 <script src="cara.js"></script>
 <script type="module">
 import {auth,db,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,addDoc,setDoc,doc,collection,serverTimestamp} from './fb.js';
 const $=s=>document.querySelector(s),LS=localStorage;
-let cfg={...DEF},uid=null,buf={},ts=[],T=null,ses=+LS.ses>Date.now();
-const consent=()=>LS.ok18==='1',msg=(t,e)=>{$('#msg').textContent=t;$('#msg').className=e?'err':''};
+let cfg={...DEF},uid=null,ses=+LS.ses>Date.now(),sel=null,photoURL=null,faceOK=false,sent=false;
+const nk=()=>'rx'+night(),US=()=>JSON.parse(LS[nk()]||'{"n":0,"p":0,"t":0}');
+const chk=()=>{$('#send').disabled=!(sel&&$('#ck').checked&&(!photoURL||faceOK)&&!sent)};
+function dropPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;faceOK=false;$('#prev').removeAttribute('src');$('#file').value='';$('#ferr').textContent='';$('#pickt').textContent='Tocá para sacarte la foto';$('#rm').hidden=true;chk()}
 function view(){
   const off=!cfg.enabled;$('#off').hidden=!off;$('#sc').hidden=off||ses;$('#app').hidden=off||!ses;
-  $('#ok').hidden=consent();$('#pickw').hidden=!!cfg.photosPaused;
-  document.querySelectorAll('#g button').forEach(b=>b.disabled=!consent());
+  const u=US(),max=u.n>=cfg.sendsNight,fin=sent||max||Date.now()-u.t<cfg.cooldownSecs*1000;
+  $('#f').hidden=fin;$('#done').hidden=!fin;
+  $('#dt').textContent=max&&!sent?'Ya llegaste al máximo de reacciones de esta noche. ¡Gracias por sumarte!':'Es muy importante para nosotros. ¡Mirá la pantalla! 👀';
+  const hp=!!cfg.photosPaused||u.p>=cfg.photosNight;$('#pickw').hidden=hp;if(hp&&photoURL)dropPhoto();
+  chk();
 }
-R.forEach(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.onclick=()=>tap(k);$('#g').append(b)});
-$('#ck').onchange=()=>{LS.ok18=$('#ck').checked?'1':'';view()};
-watchCfg(c=>{cfg=c;view()});view();
+R.forEach(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.setAttribute('aria-pressed','false');
+  b.onclick=()=>{sel=k;[...$('#g').children].forEach(x=>x.setAttribute('aria-pressed',x===b));chk()};$('#g').append(b)});
+$('#ck').onchange=chk;
+watchCfg(c=>{cfg=c;view()});view();loadLM();
 onAuthStateChanged(auth,async u=>{if(!u){signInAnonymously(auth);return}uid=u.uid;await join();view()});
 async function join(){
   const m=location.hash.match(/t=(\w+)/);if(!m)return;
@@ -42,30 +60,36 @@ async function join(){
   catch(e){if(!ses)$('#sc').textContent='Ese QR venció. Escaneá el que está ahora en la pantalla 📷'}
   history.replaceState(null,'',location.pathname);
 }
-function expired(){LS.ses=0;ses=false;$('#sc').textContent='Se terminó tu sesión. Escaneá de nuevo el QR de la pantalla 📷';view()}
-function tap(k){
-  const now=Date.now();ts=ts.filter(t=>now-t<6e4);
-  if(ts.length>=cfg.rxPerMin)return msg('¡Más despacio, campeón! 😅',1);
-  ts.push(now);buf[k]=(buf[k]||0)+1;msg('');
-  if(!T)T=setTimeout(flush,2500);
+function expired(){LS.ses=0;ses=false;sent=false;$('#sc').textContent='Se terminó tu sesión. Escaneá de nuevo el QR de la pantalla 📷';view()}
+// cámara: igual que en Halloween
+$('#file').onchange=e=>{
+  const f=e.target.files[0];if(photoURL)URL.revokeObjectURL(photoURL);
+  photoURL=f?URL.createObjectURL(f):null;faceOK=false;$('#ferr').textContent='';
+  if(photoURL){$('#prev').src=photoURL;checkFace(photoURL)}else $('#prev').removeAttribute('src');$('#pickt').textContent=photoURL?'Sacar otra foto':'Tocá para sacarte la foto';$('#rm').hidden=!photoURL;chk();
+};
+async function checkFace(url){
+  $('#ferr').textContent='Buscando tu cara…';
+  const lm=await loadLM();
+  if(!lm){faceOK=true;$('#ferr').textContent='';chk();return}
+  try{const im=new Image();im.src=url;await im.decode();const n=lm.detect(im).faceLandmarks.length;if(url!==photoURL)return;faceOK=n>0;$('#ferr').textContent=n?'':'No te vemos la cara. Probá de frente y con más luz.'}catch(e){faceOK=true;$('#ferr').textContent=''}
+  chk();
 }
-async function flush(){
-  T=null;const c=buf;buf={};if(!Object.keys(c).length||!uid)return;
-  try{await addDoc(collection(db,'rx'),{uid,ts:serverTimestamp(),c})}catch(e){if(e.code==='permission-denied')expired()}
-}
-document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(T);flush()}});
-$('#file').onchange=async e=>{
-  const f=e.target.files[0];e.target.value='';if(!f||!consent())return;
-  const key='fp'+night();if((+LS[key]||0)>=cfg.photosNight)return msg('Ya sumaste tu foto de esta noche 📸',1);
-  msg('Buscando tu cara…');
+$('#rm').onclick=dropPhoto;
+$('#send').onclick=async()=>{
+  if(!sel||!$('#ck').checked)return;
+  sent=true;$('#send').disabled=true;$('#err').textContent='';
   try{
-    const u=URL.createObjectURL(f),im=new Image();im.src=u;await im.decode();URL.revokeObjectURL(u);
-    const s=Math.min(1,400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');
-    c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-    const lm=await loadLM();
-    if(lm&&!lm.detect(c).faceLandmarks.length)return msg('No te vemos la cara. Probá de frente y con más luz.',1);
-    await addDoc(collection(db,'ph'),{uid,ts:serverTimestamp(),img:c.toDataURL('image/jpeg',.7)});
-    LS[key]=(+LS[key]||0)+1;msg('¡Listo! Tu foto entra en la cola de la pantalla 🙌');
-  }catch(err){if(err.code==='permission-denied')expired();else msg('No pudimos enviarla. Probá de nuevo.',1)}
+    let img=null;
+    if(photoURL){
+      const im=new Image();im.src=photoURL;await im.decode();
+      const s=Math.min(1,400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');
+      c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      img=c.toDataURL('image/jpeg',.7);
+    }
+    const d={uid,ts:serverTimestamp(),r:sel};if(img){d.img=img;d.ph=true}
+    await addDoc(collection(db,'rx'),d);
+    const u=US();u.n++;u.t=Date.now();if(img)u.p++;LS[nk()]=JSON.stringify(u);
+    dropPhoto();view();
+  }catch(e){sent=false;if(e.code==='permission-denied')expired();else{$('#err').textContent='No pudimos enviarla. Probá de nuevo.';chk()}}
 };
 </script></body></html>
