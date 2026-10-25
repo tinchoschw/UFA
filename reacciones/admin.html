@@ -1,0 +1,55 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Panel reacciones</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="../estilo.css">
+<style>
+main{max-width:720px;margin:0 auto;padding:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:13px}
+label.sw{flex-direction:row;align-items:center;gap:10px;color:var(--ink);font-size:15px}
+small{color:var(--mut)}
+#th{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}#th:empty::before{content:"Sin fotos en cola";color:var(--mut)}
+#th div{display:flex;flex-direction:column;gap:4px;width:96px}#th img{width:96px;border-radius:8px}#th button{padding:6px}
+table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td{padding:5px;border-bottom:1px solid var(--line)}tr:last-child td{font-weight:700}
+</style></head><body><main>
+<div id="login" class="card"><h1>Panel</h1><div class="grid"><input type="email" id="em" placeholder="Email" autocomplete="username"><input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password"></div><div class="err" id="le"></div><button id="li">Entrar</button></div>
+<div id="panel" hidden>
+<h1>Reacciones en vivo</h1>
+<div class="card" id="pair" hidden><b>Una TV pide vincularse</b><br><br><button id="pbtn">Vincular esta TV</button></div>
+<div class="card"><div class="grid">
+<label class="sw"><input type="checkbox" data-k="enabled"> Encendido <small>(apagado total: la TV queda solo con tus visuales)</small></label>
+<label class="sw"><input type="checkbox" data-k="photosPaused"> Pausar fotos <small>(descarta las que estén en cola)</small></label>
+</div></div>
+<div class="card"><b>Fotos en cola</b> <small>(la primera suele ser la que está saliendo)</small><div id="th"></div></div>
+<div class="card"><b>Esta noche</b><table id="tb"></table></div>
+<div class="card"><div class="grid">
+<label>Reacciones por minuto por persona<input type="number" data-k="rxPerMin" min="1"></label>
+<label>Fotos por persona por noche<input type="number" data-k="photosNight" min="0"></label>
+<label>Segundos de cada foto<input type="number" data-k="photoSecs" min="2"></label>
+<label>Tope de emojis en pantalla<input type="number" data-k="maxEmojis" min="5"></label>
+<label>Tope de fotos en cola<input type="number" data-k="maxQueue" min="1"></label>
+<label>Texto bajo el QR<input type="text" data-k="titulo" maxlength="60"></label>
+<label>URL de tus visuales de fondo<input type="text" data-k="bg" placeholder="https://..."></label>
+</div></div>
+</div></main>
+<script type="module">
+import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInWithEmailAndPassword,onSnapshot,setDoc,deleteDoc,doc,collection,query,orderBy,serverTimestamp} from './fb.js';
+const $=s=>document.querySelector(s),E=Object.fromEntries(R);
+let cfg={...DEF},started=false,tvId=(location.hash.match(/tv=(\w+)/)||[])[1];
+$('#li').onclick=()=>signInWithEmailAndPassword(auth,$('#em').value.trim(),$('#pw').value).catch(()=>{$('#le').textContent='Email o contraseña incorrectos.'});
+onAuthStateChanged(auth,u=>{const ok=u&&!u.isAnonymous;$('#login').hidden=ok;$('#panel').hidden=!ok;$('#pair').hidden=!(ok&&tvId);if(ok&&!started){started=true;go()}});
+$('#pbtn').onclick=()=>setDoc(refs.tv,{uid:tvId,ts:serverTimestamp()}).then(()=>{history.replaceState(null,'',location.pathname);tvId=null;$('#pair').hidden=true;alert('TV vinculada ✅')}).catch(()=>alert('No se pudo vincular. ¿Estás logueado como admin?'));
+document.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{const v=el.type==='checkbox'?el.checked:el.type==='number'?+el.value:el.value.trim();setDoc(refs.cfg,{[el.dataset.k]:v},{merge:true})});
+function fill(){document.querySelectorAll('[data-k]').forEach(el=>{if(document.activeElement===el)return;const v=cfg[el.dataset.k];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''})}
+const ord=h=>+h<12?+h+24:+h,n=(o,k)=>+(o&&o[k])||0;
+function stats(d){
+  const a=d.all||{},h=d.h||{},K=[...R.map(r=>r[0]),'foto'],hs=Object.keys(h).sort((x,y)=>ord(x)-ord(y));
+  const row=(t,o)=>'<tr><td>'+t+'</td>'+K.map(k=>'<td>'+n(o,k)+'</td>').join('')+'</tr>';
+  $('#tb').innerHTML='<tr><th>Hora</th>'+K.map(k=>'<th>'+(E[k]||'📸')+'</th>').join('')+'</tr>'+hs.map(x=>row(x+' h',h[x])).join('')+row('Total',a);
+}
+function go(){
+  watchCfg(c=>{cfg=c;fill()});
+  onSnapshot(query(collection(db,'ph'),orderBy('ts')),s=>$('#th').replaceChildren(...s.docs.map(d=>{
+    const w=document.createElement('div'),i=new Image(),b=document.createElement('button');
+    i.src=d.data().img;i.alt='Foto en cola';b.textContent='Sacar';b.onclick=()=>deleteDoc(d.ref);w.append(i,b);return w})));
+  onSnapshot(doc(db,'stats',night()),s=>stats(s.exists()?s.data():{}));
+}
+</script></body></html>

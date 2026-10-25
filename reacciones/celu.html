@@ -1,0 +1,71 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Reaccioná en vivo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="../estilo.css">
+<style>
+main{max-width:440px;margin:0 auto;padding:18px}
+.g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.g button{font-size:54px;line-height:1;padding:20px 0;background:var(--panel);border:2px solid var(--line);border-radius:18px;transition:transform .08s}
+.g button:active{transform:scale(.88);border-color:var(--pk)}
+.sr{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+#pick{display:block;text-align:center;padding:16px;border:2px dashed var(--pk);border-radius:16px;background:var(--panel);font-weight:600;cursor:pointer}
+#file:focus-visible+#pick{outline:2px solid var(--ink);outline-offset:2px}
+.ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--mut)}
+#msg{min-height:1.4em;text-align:center;margin-top:12px}
+</style></head><body><main>
+<h1>¡Reaccioná en vivo!</h1>
+<div class="card ck" id="ok"><label class="ck"><input type="checkbox" id="ck"> Soy mayor de 18 años y acepto que, si mando una foto, se muestre unos segundos en la pantalla del boliche. La foto se borra al salir y no se pide nombre.</label></div>
+<div id="sc" hidden>Escaneá el QR de la pantalla para reaccionar 📷</div>
+<div id="off" hidden>Esto no está activo ahora. ¡Volvé a probar más tarde!</div>
+<div id="app" hidden>
+<div class="g" id="g"></div>
+<div id="pickw"><input type="file" id="file" class="sr" accept="image/*" capture="user"><label for="file" id="pick">📸 Sumá tu foto (opcional)</label></div>
+<div id="msg" role="status"></div>
+</div>
+</main>
+<script src="../filtro.js"></script>
+<script type="module">
+import {auth,db,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,addDoc,setDoc,doc,collection,serverTimestamp} from './fb.js';
+const $=s=>document.querySelector(s),LS=localStorage;
+let cfg={...DEF},uid=null,buf={},ts=[],T=null,ses=+LS.ses>Date.now();
+const consent=()=>LS.ok18==='1',msg=(t,e)=>{$('#msg').textContent=t;$('#msg').className=e?'err':''};
+function view(){
+  const off=!cfg.enabled;$('#off').hidden=!off;$('#sc').hidden=off||ses;$('#app').hidden=off||!ses;
+  $('#ok').hidden=consent();$('#pickw').hidden=!!cfg.photosPaused;
+  document.querySelectorAll('#g button').forEach(b=>b.disabled=!consent());
+}
+R.forEach(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.onclick=()=>tap(k);$('#g').append(b)});
+$('#ck').onchange=()=>{LS.ok18=$('#ck').checked?'1':'';view()};
+watchCfg(c=>{cfg=c;view()});view();
+onAuthStateChanged(auth,async u=>{if(!u){signInAnonymously(auth);return}uid=u.uid;await join();view()});
+async function join(){
+  const m=location.hash.match(/t=(\w+)/);if(!m)return;
+  try{await setDoc(doc(db,'ses',uid),{tk:m[1],ts:serverTimestamp()});LS.ses=Date.now()+29*6e4;ses=true}
+  catch(e){if(!ses)$('#sc').textContent='Ese QR venció. Escaneá el que está ahora en la pantalla 📷'}
+  history.replaceState(null,'',location.pathname);
+}
+function expired(){LS.ses=0;ses=false;$('#sc').textContent='Se terminó tu sesión. Escaneá de nuevo el QR de la pantalla 📷';view()}
+function tap(k){
+  const now=Date.now();ts=ts.filter(t=>now-t<6e4);
+  if(ts.length>=cfg.rxPerMin)return msg('¡Más despacio, campeón! 😅',1);
+  ts.push(now);buf[k]=(buf[k]||0)+1;msg('');
+  if(!T)T=setTimeout(flush,2500);
+}
+async function flush(){
+  T=null;const c=buf;buf={};if(!Object.keys(c).length||!uid)return;
+  try{await addDoc(collection(db,'rx'),{uid,ts:serverTimestamp(),c})}catch(e){if(e.code==='permission-denied')expired()}
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(T);flush()}});
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f||!consent())return;
+  const key='fp'+night();if((+LS[key]||0)>=cfg.photosNight)return msg('Ya sumaste tu foto de esta noche 📸',1);
+  msg('Buscando tu cara…');
+  try{
+    const u=URL.createObjectURL(f),im=new Image();im.src=u;await im.decode();URL.revokeObjectURL(u);
+    const s=Math.min(1,400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');
+    c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    const lm=await loadLM();
+    if(lm&&!lm.detect(c).faceLandmarks.length)return msg('No te vemos la cara. Probá de frente y con más luz.',1);
+    await addDoc(collection(db,'ph'),{uid,ts:serverTimestamp(),img:c.toDataURL('image/jpeg',.7)});
+    LS[key]=(+LS[key]||0)+1;msg('¡Listo! Tu foto entra en la cola de la pantalla 🙌');
+  }catch(err){if(err.code==='permission-denied')expired();else msg('No pudimos enviarla. Probá de nuevo.',1)}
+};
+</script></body></html>

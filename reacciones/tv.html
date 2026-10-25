@@ -1,0 +1,95 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TV reacciones</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="../estilo.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+html,body{height:100%;overflow:hidden;background:#000;cursor:none}
+#bg{position:fixed;inset:0;width:100%;height:100%;border:0;background:#000;pointer-events:none}
+.fl{position:fixed;bottom:-12vh;pointer-events:none;z-index:3;animation:up var(--d) ease-in-out forwards}
+@keyframes up{50%{transform:translate(var(--x),-60vh)}to{transform:translate(0,-125vh);opacity:.3}}
+#qr{position:fixed;right:1.5vw;bottom:2vh;width:15vw;z-index:5;background:#fff;padding:.7vw;border-radius:1vw;text-align:center;color:#111}
+#qr svg{width:100%;height:100%;display:block}#qrs{aspect-ratio:1}
+#cap{font:700 1.2vw/1.2 system-ui,sans-serif;margin-top:.5vw}
+#ph{position:fixed;left:1.5vw;bottom:2vh;width:15vw;z-index:5;display:none;text-align:center;background:#12081fe6;padding:.6vw;border-radius:1vw;border:.25vw solid var(--pk)}
+#ph.on{display:block;animation:pop .35s}@keyframes pop{from{transform:scale(.6);opacity:0}}
+#ph img{width:100%;display:block;border-radius:.6vw}
+#ph b{display:block;margin-top:.5vw;font:1.5vw/1.15 "Bowlby One",Impact,sans-serif;color:#fff}
+body.off .fl,body.off #qr,body.off #ph{display:none}
+#s-pair{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:2vh;align-items:center;justify-content:center;text-align:center;padding:4vw}#s-pair h1{font-size:4vw}#s-pair p{font-size:2vw;color:var(--mut);max-width:60vw;margin:0}
+#pq{width:24vw;background:#fff;padding:1vw;border-radius:1vw}#pq svg{width:100%;height:auto;display:block}
+@media(prefers-reduced-motion:reduce){#ph.on{animation:none}}
+</style></head><body>
+<iframe id="bg" title="Visuales"></iframe>
+<div id="qr"><div id="qrs"></div><div id="cap"></div></div>
+<div id="ph"><img id="pic" alt="Foto"><b>¡Gracias por sumarte!</b></div>
+<div id="s-pair"><h1>Vincular esta TV</h1><div id="pq"></div><p>Escaneá este QR con tu celu (con el panel de admin abierto y logueado) y tocá “Vincular esta TV”.</p></div>
+<script type="module">
+import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,onSnapshot,query,collection,where,orderBy,Timestamp,deleteDoc,doc,setDoc,increment} from './fb.js';
+const $=s=>document.querySelector(s),E=Object.fromEntries(R);
+let cfg={...DEF},S={all:{},h:{}},rate=new Map(),queue=[],cur=null,curT,tkc='',started=false;
+let PC=JSON.parse(localStorage.pc||'{}');if(PC.n!==night())PC={n:night(),c:{}};
+const pcSave=()=>localStorage.pc=JSON.stringify(PC);
+const del=id=>deleteDoc(doc(db,'ph',id)).catch(()=>{});
+// vinculación por QR: la TV entra como anónima y el admin (desde el celu) autoriza su uid
+let uid=null;
+onAuthStateChanged(auth,u=>{
+  if(!u){signInAnonymously(auth);return}
+  if(uid)return;uid=u.uid;
+  try{const q=qrcode(0,'M');q.addData(new URL('admin.html',location.href).href+'#tv='+uid);q.make();$('#pq').innerHTML=q.createSvgTag({cellSize:4,margin:0})}catch(e){}
+  onSnapshot(refs.tv,s=>{const ok=s.exists()&&s.data().uid===uid;if(ok&&!started){started=true;go()}else if(!ok&&started)location.reload();$('#s-pair').hidden=ok},()=>{});
+});
+function count(k){const h=String(new Date().getHours()).padStart(2,'0');S.all[k]=(S.all[k]||0)+1;const o=S.h[h]=S.h[h]||{};o[k]=(o[k]||0)+1}
+async function flush(){
+  if(!Object.keys(S.all).length)return;
+  const o={all:{},h:{}};for(const k in S.all)o.all[k]=increment(S.all[k]);
+  for(const h in S.h){o.h[h]={};for(const k in S.h[h])o.h[h][k]=increment(S.h[h][k])}
+  S={all:{},h:{}};setDoc(doc(db,'stats',night()),o,{merge:true}).catch(()=>{});
+}
+const tk=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>b.toString(16).padStart(2,'0')).join('');
+async function rot(){
+  const n=tk();
+  try{await setDoc(refs.token,{cur:n,prev:tkc||n})}catch(e){return}
+  tkc=n;
+  try{const q=qrcode(0,'L');q.addData(new URL('celu.html',location.href).href+'#t='+n);q.make();$('#qrs').innerHTML=q.createSvgTag({cellSize:4,margin:0})}catch(e){}
+}
+function spawn(e){
+  if(document.querySelectorAll('.fl').length>=cfg.maxEmojis)return;
+  const s=document.createElement('span');s.className='fl';s.textContent=e;
+  s.style.cssText='left:'+(4+Math.random()*88)+'vw;font-size:'+(4+Math.random()*3)+'vw;--d:'+(4.5+Math.random()*2.5)+'s;--x:'+(Math.random()*12-6)+'vw';
+  s.onanimationend=()=>s.remove();document.body.append(s);
+}
+function hidePhoto(){clearTimeout(curT);cur=null;$('#ph').classList.remove('on');setTimeout(next,600)}
+function next(){
+  if(cur||!queue.length||!cfg.enabled||cfg.photosPaused)return;
+  cur=queue.shift();$('#pic').src=cur.img;$('#ph').classList.add('on');count('foto');
+  const id=cur.id;curT=setTimeout(()=>{hidePhoto();del(id)},cfg.photoSecs*1000);
+}
+function go(){
+  watchCfg(c=>{
+    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);
+    $('#cap').textContent=c.titulo;
+    const f=$('#bg');if(f.dataset.u!==c.bg){f.dataset.u=c.bg;if(c.bg)f.src=c.bg;else f.removeAttribute('src')}
+    if(!c.enabled||c.photosPaused){queue.forEach(p=>del(p.id));queue=[];if(cur){const id=cur.id;hidePhoto();del(id)}}
+    if(c.enabled&&!was)rot();
+  });
+  rot();setInterval(()=>cfg.enabled&&rot(),60000);setInterval(flush,10000);
+  // reacciones: solo las nuevas (con 30 s de margen por si el reloj de la TV se adelanta)
+  onSnapshot(query(collection(db,'rx'),where('ts','>=',Timestamp.fromMillis(Date.now()-30000))),s=>s.docChanges().forEach(ch=>{
+    if(ch.type!=='added'||!cfg.enabled)return;
+    const d=ch.doc.data(),now=Date.now();let a=(rate.get(d.uid)||[]).filter(t=>now-t<6e4);
+    for(const k in d.c||{}){
+      if(!E[k])continue;const n=Math.min(+d.c[k]||0,15);
+      for(let i=0;i<n&&a.length<cfg.rxPerMin;i++){a.push(now);count(k);setTimeout(()=>spawn(E[k]),Math.random()*2000)}
+    }
+    rate.set(d.uid,a);
+  }));
+  // fotos: cola de a una; se borran al salir (o si se descartan)
+  onSnapshot(query(collection(db,'ph'),orderBy('ts')),s=>s.docChanges().forEach(ch=>{
+    const id=ch.doc.id;
+    if(ch.type==='removed'){queue=queue.filter(p=>p.id!==id);if(cur&&cur.id===id)hidePhoto();return}
+    if(ch.type!=='added')return;
+    const d=ch.doc.data(),age=Date.now()-(d.ts?d.ts.toMillis():Date.now()),n=PC.c[d.uid]||0;
+    if(!cfg.enabled||cfg.photosPaused||age>6e5||n>=cfg.photosNight||queue.length>=cfg.maxQueue){del(id);return}
+    PC.c[d.uid]=n+1;pcSave();queue.push({id,img:d.img});next();
+  }));
+}
+</script></body></html>
