@@ -23,8 +23,11 @@ body.off .fl,body.off #qr{display:none}
 import {auth,db,refs,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,onSnapshot,query,collection,where,Timestamp,deleteDoc,doc,setDoc,increment} from './fb.js';
 const $=s=>document.querySelector(s),E=Object.fromEntries(R);
 let cfg={...DEF},S={all:{},h:{}},waitQ=[],fl=new Map(),tkc='',started=false,uid=null,bgT=null,vids=[],vi=-1;
-let PC=JSON.parse(localStorage.pc||'{}');if(PC.n!==night())PC={n:night(),c:{}};
-const pcSave=()=>localStorage.pc=JSON.stringify(PC);
+let PC=JSON.parse(localStorage.pc2||'{}');if(PC.n!==night())PC={n:night(),c:{}};
+const pcSave=()=>localStorage.pc2=JSON.stringify(PC);
+// tv.html?debug muestra en pantalla qué recibe y por qué descarta algo
+const dbg=new URLSearchParams(location.search).has('debug');
+function log(m){if(!dbg)return;let e=$('#dbg');if(!e){e=document.createElement('pre');e.id='dbg';e.style.cssText='position:fixed;left:1vw;top:1vh;z-index:30;margin:0;font:1.2vw/1.3 monospace;color:#0f0;background:#000b;padding:.5vw;max-width:60vw;white-space:pre-wrap';document.body.append(e)}e.textContent=(new Date().toLocaleTimeString()+' '+m+'\n'+e.textContent).slice(0,900)}
 const del=id=>deleteDoc(doc(db,'rx',id)).catch(()=>{});
 // vinculación por QR: la TV entra como anónima y el admin (desde el celu) autoriza su uid
 onAuthStateChanged(auth,u=>{
@@ -81,6 +84,7 @@ function floatPhoto(p){
 function pump(){while(waitQ.length&&fl.size<cfg.maxPhotos)floatPhoto(waitQ.shift())}
 function drop(id){waitQ=waitQ.filter(p=>p.id!==id);const w=fl.get(id);if(w){w.remove();fl.delete(id);pump()}}
 function go(){
+  log('TV v2 lista (esperando reacciones)');
   watchCfg(c=>{
     const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');
     if(!c.enabled||c.photosPaused){waitQ.forEach(p=>del(p.id));waitQ=[];fl.forEach((w,id)=>{w.remove();del(id)});fl.clear()}
@@ -88,19 +92,19 @@ function go(){
   });
   rot();setInterval(()=>cfg.enabled&&rot(),60000);setInterval(flush,10000);
   // cada envío es un documento: reacción y, si hay, foto. Sale en cuanto llega, en paralelo con los demás.
-  onSnapshot(query(collection(db,'rx'),where('ts','>=',Timestamp.fromMillis(Date.now()-30000))),s=>s.docChanges().forEach(ch=>{
+  onSnapshot(query(collection(db,'rx'),where('ts','>=',Timestamp.fromMillis(Date.now()-30000))),s=>s.docChanges().forEach(ch=>{try{
     const id=ch.doc.id;
     if(ch.type==='removed'){drop(id);return}
     if(ch.type!=='added')return;
     const d=ch.doc.data(),now=Date.now(),c=PC.c[d.uid]||{t:0,n:0,p:0};
-    let img=d.img;
+    let img=d.img;log('recibido '+d.r+(img?' +foto':''));
     if(img&&(cfg.photosPaused||c.p>=cfg.photosNight)){img=null;del(id)}
-    if(!cfg.enabled||!E[d.r]||c.n>=cfg.sendsNight||now-c.t<cfg.cooldownSecs*800){if(img)del(id);return}
+    if(!cfg.enabled||!E[d.r]||c.n>=cfg.sendsNight||now-c.t<cfg.cooldownSecs*800){log('descartado (límite o apagado)');if(img)del(id);return}
     c.t=now;c.n++;if(img)c.p++;PC.c[d.uid]=c;pcSave();count(d.r);
     if(!img)spawn(E[d.r]);
     else if(fl.size<cfg.maxPhotos)floatPhoto({id,img,r:d.r});
     else if(waitQ.length<cfg.maxQueue)waitQ.push({id,img,r:d.r});
     else{del(id);spawn(E[d.r])}
-  }));
+  }catch(e){log('ERR '+e.message)}}),e=>log('ERROR rx: '+e.code));
 }
 </script></body></html>
