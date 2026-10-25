@@ -1,5 +1,5 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Reaccioná en vivo</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="../estilo.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&display=swap"><link rel="stylesheet" href="estilo.css">
 <style>
 main{max-width:440px;margin:0 auto;padding:18px}
 .g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
@@ -21,7 +21,7 @@ main{max-width:440px;margin:0 auto;padding:18px}
 <div id="msg" role="status"></div>
 </div>
 </main>
-<script src="../filtro.js"></script>
+<script src="cara.js"></script>
 <script type="module">
 import {auth,db,DEF,R,night,watchCfg,onAuthStateChanged,signInAnonymously,addDoc,setDoc,doc,collection,serverTimestamp} from './fb.js';
 const $=s=>document.querySelector(s),LS=localStorage;
