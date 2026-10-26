@@ -21,6 +21,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td
 <div class="card"><b>Fotos en pantalla y en espera</b> <small>(“Sacar” la quita al instante)</small><div id="th"></div></div>
 <div class="card"><b>Esta noche</b><table id="tb"></table></div>
 <div class="card"><div class="grid">
+<label style="grid-column:1/-1">Oscurecer el fondo: <b id="dv">0</b>% <small>(más oscuro = las reacciones resaltan más)</small><input type="range" data-k="dim" min="0" max="80" step="5"></label>
 <label>Espera entre reacciones (s)<input type="number" data-k="cooldownSecs" min="0"></label>
 <label>Reacciones por persona por noche<input type="number" data-k="sendsNight" min="1"></label>
 <label>Fotos por persona por noche<input type="number" data-k="photosNight" min="0"></label>
@@ -39,8 +40,9 @@ let cfg={...DEF},started=false,tvId=(location.hash.match(/tv=(\w+)/)||[])[1];
 $('#li').onclick=()=>signInWithEmailAndPassword(auth,$('#em').value.trim(),$('#pw').value).catch(()=>{$('#le').textContent='Email o contraseña incorrectos.'});
 onAuthStateChanged(auth,u=>{const ok=u&&!u.isAnonymous;$('#login').hidden=ok;$('#panel').hidden=!ok;$('#pair').hidden=!(ok&&tvId);if(ok&&!started){started=true;go()}});
 $('#pbtn').onclick=()=>setDoc(refs.tv,{uid:tvId,ts:serverTimestamp()}).then(()=>{history.replaceState(null,'',location.pathname);tvId=null;$('#pair').hidden=true;alert('TV vinculada ✅')}).catch(()=>alert('No se pudo vincular. ¿Estás logueado como admin?'));
-document.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{const v=el.type==='checkbox'?el.checked:el.type==='number'?+el.value:el.value.trim();setDoc(refs.cfg,{[el.dataset.k]:v},{merge:true})});
-function fill(){document.querySelectorAll('[data-k]').forEach(el=>{if(document.activeElement===el)return;const v=cfg[el.dataset.k];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''})}
+document.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{const v=el.type==='checkbox'?el.checked:el.type==='number'||el.type==='range'?+el.value:el.value.trim();setDoc(refs.cfg,{[el.dataset.k]:v},{merge:true})});
+function fill(){document.querySelectorAll('[data-k]').forEach(el=>{if(document.activeElement===el)return;const v=cfg[el.dataset.k];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''});$('#dv').textContent=cfg.dim||0}
+document.querySelector('[data-k=dim]').oninput=e=>$('#dv').textContent=e.target.value;
 const ord=h=>+h<12?+h+24:+h,n=(o,k)=>+(o&&o[k])||0;
 function stats(d){
   const a=d.all||{},h=d.h||{},K=[...R.map(r=>r[0]),'foto'],hs=Object.keys(h).sort((x,y)=>ord(x)-ord(y));

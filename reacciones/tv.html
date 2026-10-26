@@ -5,6 +5,7 @@
 html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 40%,#10121e,#000);cursor:none}
 #bg,#vid{position:fixed;inset:0;width:100%;height:100%;border:0;pointer-events:none}
 #vid{object-fit:cover;background:#000}
+#dim{position:fixed;inset:0;background:#000;opacity:0;z-index:1;pointer-events:none;transition:opacity .4s}
 .fl{position:fixed;bottom:-12vh;pointer-events:none;z-index:3;animation:up var(--d) ease-in-out forwards}
 @keyframes up{50%{transform:translate(var(--x),-60vh)}to{transform:translate(0,-125vh);opacity:.3}}
 .fp{width:10vw}.fp img{width:100%;display:block;border-radius:.8vw;border:.25vw solid var(--pk);box-shadow:0 0 2vw var(--pk2)}
@@ -16,7 +17,7 @@ body.off .fl,body.off #qr{display:none}
 #s-pair{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:2vh;align-items:center;justify-content:center;text-align:center;padding:4vw}#s-pair h1{font-size:4vw}#s-pair p{font-size:2vw;color:var(--mut);max-width:60vw;margin:0}
 #pq{width:24vw;background:#fff;padding:1vw;border-radius:1vw}#pq svg{width:100%;height:auto;display:block}
 </style></head><body>
-<iframe id="bg" title="Visuales"></iframe><video id="vid" muted autoplay playsinline hidden></video>
+<iframe id="bg" title="Visuales"></iframe><video id="vid" muted autoplay playsinline hidden></video><div id="dim"></div>
 <div id="qr"><div id="qrs"></div><div id="cap"></div></div>
 <div id="s-pair"><h1>Vincular esta TV</h1><div id="pq"></div><p>Escaneá este QR con tu celu (con el panel de admin abierto y logueado) y tocá “Vincular esta TV”.</p></div>
 <script type="module">
@@ -86,7 +87,7 @@ function drop(id){waitQ=waitQ.filter(p=>p.id!==id);const w=fl.get(id);if(w){w.re
 function go(){
   log('TV v2 lista (esperando reacciones)');
   watchCfg(c=>{
-    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');
+    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');$('#dim').style.opacity=(c.dim||0)/100;
     if(!c.enabled||c.photosPaused){waitQ.forEach(p=>del(p.id));waitQ=[];fl.forEach((w,id)=>{w.remove();del(id)});fl.clear()}
     if(c.enabled&&!was)rot();
   });
