@@ -8,6 +8,7 @@ label.sw{flex-direction:row;align-items:center;gap:10px;color:var(--ink);font-si
 small{color:var(--mut)}
 #th{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}#th:empty::before{content:"Sin fotos en cola";color:var(--mut)}
 #th div{display:flex;flex-direction:column;gap:4px;width:96px;position:relative}#th span{position:absolute;top:-8px;right:-8px;font-size:22px}#th img{width:96px;border-radius:8px}#th button{padding:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.chips button{font-size:28px;line-height:1;padding:8px 10px;background:var(--bg);border:2px solid var(--line);border-radius:12px;opacity:.4}.chips button[aria-pressed=true]{opacity:1;border-color:var(--pk)}
 table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td{padding:5px;border-bottom:1px solid var(--line)}tr:last-child td{font-weight:700}
 </style></head><body><main>
 <div id="login" class="card"><h1>Panel</h1><div class="grid"><input type="email" id="em" placeholder="Email" autocomplete="username"><input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password"></div><div class="err" id="le"></div><button id="li">Entrar</button></div>
@@ -18,6 +19,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px;text-align:center}th,td
 <label class="sw"><input type="checkbox" data-k="enabled"> Encendido <small>(apagado total: la TV queda solo con tus visuales)</small></label>
 <label class="sw"><input type="checkbox" data-k="photosPaused"> Pausar fotos <small>(quita las que flotan y descarta las que esperan)</small></label>
 </div></div>
+<div class="card"><b>Reacciones disponibles</b> <small>(tocá para activar o desactivar; se aplica al instante en los celus)</small><div id="ems" class="chips"></div></div>
 <div class="card"><b>Fotos en pantalla y en espera</b> <small>(“Sacar” la quita al instante)</small><div id="th"></div></div>
 <div class="card"><b>Esta noche</b><table id="tb"></table></div>
 <div class="card"><div class="grid">
@@ -45,12 +47,16 @@ function fill(){document.querySelectorAll('[data-k]').forEach(el=>{if(document.a
 document.querySelector('[data-k=dim]').oninput=e=>$('#dv').textContent=e.target.value;
 const ord=h=>+h<12?+h+24:+h,n=(o,k)=>+(o&&o[k])||0;
 function stats(d){
-  const a=d.all||{},h=d.h||{},K=[...R.map(r=>r[0]),'foto'],hs=Object.keys(h).sort((x,y)=>ord(x)-ord(y));
+  const a=d.all||{},h=d.h||{},K=[...R.map(r=>r[0]).filter(k=>n(a,k)>0),'foto'],hs=Object.keys(h).sort((x,y)=>ord(x)-ord(y));
   const row=(t,o)=>'<tr><td>'+t+'</td>'+K.map(k=>'<td>'+n(o,k)+'</td>').join('')+'</tr>';
   $('#tb').innerHTML='<tr><th>Hora</th>'+K.map(k=>'<th>'+(E[k]||'📸')+'</th>').join('')+'</tr>'+hs.map(x=>row(x+' h',h[x])).join('')+row('Total',a);
 }
+function chips(){
+  $('#ems').replaceChildren(...R.map(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.setAttribute('aria-pressed',String(cfg.on.includes(k)));
+    b.onclick=()=>{let on=cfg.on.includes(k)?cfg.on.filter(x=>x!==k):[...cfg.on,k];if(!on.length)return;on=R.map(r=>r[0]).filter(x=>on.includes(x));setDoc(refs.cfg,{on},{merge:true})};return b}));
+}
 function go(){
-  watchCfg(c=>{cfg=c;fill()});
+  watchCfg(c=>{cfg=c;fill();chips()});
   onSnapshot(query(collection(db,'rx'),where('ph','==',true)),s=>$('#th').replaceChildren(...s.docs.sort((a,b)=>(a.data().ts?.toMillis?.()||0)-(b.data().ts?.toMillis?.()||0)).map(d=>{
     const x=d.data(),w=document.createElement('div'),i=new Image(),e=document.createElement('span'),b=document.createElement('button');
     i.src=x.img;i.alt='Foto';e.textContent=E[x.r]||'';b.textContent='Sacar';b.onclick=()=>deleteDoc(d.ref);w.append(i,e,b);return w})));

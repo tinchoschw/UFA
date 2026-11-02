@@ -10,7 +10,7 @@ html,body{height:100%;overflow:hidden;background:radial-gradient(circle at 50% 4
 @keyframes up{50%{transform:translate(var(--x),-60vh)}to{transform:translate(0,-125vh)}}
 .fp{width:10vw}.fp img{width:100%;display:block;border-radius:.8vw;border:.25vw solid var(--pk);box-shadow:0 0 2vw var(--pk2)}
 .fp span{position:absolute;top:-2vw;right:-1.6vw;font-size:4.2vw;line-height:1;filter:drop-shadow(0 0 .6vw #000)}
-#qr{position:fixed;right:1.5vw;bottom:2vh;width:15vw;z-index:5;background:#fff;padding:.7vw;border-radius:1vw;border:.3vw solid var(--pk);text-align:center;color:#111}
+#qr{position:fixed;right:1.5vw;bottom:2vh;width:15vw;z-index:5;background:#fff;padding:.7vw;border-radius:1vw;border:.3vw solid var(--pk);text-align:center;color:#111;filter:brightness(var(--qb,1))}
 #qr svg{width:100%;height:100%;display:block}#qrs{aspect-ratio:1}
 #cap{font:700 1.2vw/1.2 system-ui,sans-serif;margin-top:.5vw}
 body.off .fl,body.off #qr{display:none}
@@ -87,7 +87,7 @@ function drop(id){waitQ=waitQ.filter(p=>p.id!==id);const w=fl.get(id);if(w){w.re
 function go(){
   log('TV v2 lista (esperando reacciones)');
   watchCfg(c=>{
-    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');$('#dim').style.opacity=(c.dim||0)/100;
+    const was=cfg.enabled;cfg=c;document.body.classList.toggle('off',!c.enabled);$('#cap').textContent=c.titulo;setBg(c.bg||'');$('#dim').style.opacity=(c.dim||0)/100;document.documentElement.style.setProperty('--qb',1-.6*(c.dim||0)/100);
     if(!c.enabled||c.photosPaused){waitQ.forEach(p=>del(p.id));waitQ=[];fl.forEach((w,id)=>{w.remove();del(id)});fl.clear()}
     if(c.enabled&&!was)rot();
   });
@@ -100,7 +100,7 @@ function go(){
     const d=ch.doc.data(),now=Date.now(),c=PC.c[d.uid]||{t:0,n:0,p:0};
     let img=d.img;log('recibido '+d.r+(img?' +foto':''));
     if(img&&(cfg.photosPaused||c.p>=cfg.photosNight)){img=null;del(id)}
-    if(!cfg.enabled||!E[d.r]||c.n>=cfg.sendsNight||now-c.t<cfg.cooldownSecs*800){log('descartado (límite o apagado)');if(img)del(id);return}
+    if(!cfg.enabled||!cfg.on.includes(d.r)||c.n>=cfg.sendsNight||now-c.t<cfg.cooldownSecs*800){log('descartado (límite o apagado)');if(img)del(id);return}
     c.t=now;c.n++;if(img)c.p++;PC.c[d.uid]=c;pcSave();count(d.r);
     if(!img)spawn(E[d.r]);
     else if(fl.size<cfg.maxPhotos)floatPhoto({id,img,r:d.r});

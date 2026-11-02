@@ -4,6 +4,7 @@
 main{max-width:440px;margin:0 auto;padding:18px}
 #f{display:flex;flex-direction:column;gap:12px}.q{font-size:14px}.q small{color:var(--mut)}
 .g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.g.m{grid-template-columns:repeat(4,1fr)}.g.m button{font-size:36px;padding:12px 0}
 .g button{font-size:46px;line-height:1;padding:16px 0;background:var(--panel);border:2px solid var(--line);border-radius:16px}
 .g button[aria-pressed=true]{border-color:var(--pk);box-shadow:0 0 0 2px var(--pk2),0 0 18px #ff2bd677}
 #prev{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:none}#prev[src]{display:block}
@@ -49,10 +50,17 @@ function view(){
   const hp=!!cfg.photosPaused||u.p>=cfg.photosNight;$('#pickw').hidden=hp;if(hp&&photoURL)dropPhoto();
   chk();
 }
-R.forEach(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.setAttribute('aria-pressed','false');
-  b.onclick=()=>{sel=k;[...$('#g').children].forEach(x=>x.setAttribute('aria-pressed',x===b));chk()};$('#g').append(b)});
+let onK='';
+function renderG(){
+  const on=R.filter(([k])=>cfg.on.includes(k)),key=on.map(x=>x[0]).join();if(key===onK)return;onK=key;
+  if(sel&&!cfg.on.includes(sel))sel=null;
+  const g=$('#g');g.replaceChildren();g.classList.toggle('m',on.length>6);
+  on.forEach(([k,e])=>{const b=document.createElement('button');b.textContent=e;b.setAttribute('aria-label',k);b.setAttribute('aria-pressed',String(k===sel));
+    b.onclick=()=>{sel=k;[...g.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));chk()};g.append(b)});
+  chk();
+}
 $('#ck').onchange=chk;
-watchCfg(c=>{cfg=c;view()});view();loadLM();
+watchCfg(c=>{cfg=c;renderG();view()});renderG();view();loadLM();
 onAuthStateChanged(auth,async u=>{if(!u){signInAnonymously(auth);return}uid=u.uid;await join();view()});
 async function join(){
   const m=location.hash.match(/t=(\w+)/);if(!m)return;

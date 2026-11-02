@@ -29,7 +29,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'ts', 'r', 'img', 'ph'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.ts == request.time
-        && request.resource.data.r in ['fuego', 'amor', 'birra', 'baile', 'fiesta', 'diablo']
+        && request.resource.data.r in ['fuego', 'amor', 'birra', 'baile', 'fiesta', 'diablo', 'brindis', 'copas', 'champagne', 'musica', 'bailarin', 'onda', 'risa', 'wow', 'ojos', 'festejo', 'manos', 'aplauso', 'rock', 'cien', 'cohete', 'rayo']
         && ('img' in request.resource.data) == ('ph' in request.resource.data)
         && (!('img' in request.resource.data)
           || (request.resource.data.ph == true && request.resource.data.img is string && request.resource.data.img.size() < 150000));
